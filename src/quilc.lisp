@@ -3,6 +3,18 @@
 (sbcl-librarian:define-handle-type quil-program "quil_program")
 (sbcl-librarian:define-handle-type chip-specification "chip_specification")
 
+(defun quilc-get-version-info (version-ptr githash-ptr)
+  (let ((version quilc::+QUILC-VERSION+)
+        (githash quilc::+GIT-HASH+))
+    (loop :for char :across version
+          :for i :from 0 :do
+            (setf (cffi:mem-aref (sb-alien:alien-sap version-ptr) :char i)
+                  (char-code char)))
+    (loop :for char :across githash
+          :for i :from 0 :do
+            (setf (cffi:mem-aref (sb-alien:alien-sap githash-ptr) :char i)
+                  (char-code char)))))
+
 (defun compile-protoquil (parsed-program chip-specification)
   (let ((compiled-program (cl-quil::compiler-hook parsed-program chip-specification :protoquil t)))
     (cl-quil.frontend::transform 'cl-quil.frontend::process-protoquil compiled-program)
@@ -21,6 +33,7 @@
   (:type quil-program chip-specification)
   (:literal "/* Quilc functions */")
   (:function
+   (("get_version_info" quilc-get-version-info) :void ((version :pointer) (githash :pointer)))
    (("parse_quil" cl-quil.frontend:safely-parse-quil) quil-program ((source :string)))
    (("print_program" cl-quil.frontend:print-parsed-program) :void ((program quil-program)))
    (("compile_quil" cl-quil:compiler-hook) quil-program ((program quil-program) (chip-spec chip-specification)))
