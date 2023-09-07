@@ -15,6 +15,7 @@
 
 (defun qvm-multishot-result-get (multishot-result address-name shot-index result-pointer)
   (let* ((results (elt (gethash address-name multishot-result) shot-index)))
+    (format t "results: ~a~%" results)
     (loop :for val :in results
           :for i :from 0 :do
             (setf (cffi:mem-aref (sb-alien:alien-sap result-pointer) :int i) val))))
@@ -22,21 +23,21 @@
 (defun qvm-multishot-measure (compiled-quil qubits-ptr n-qubits trials results-ptr)
   (let ((qubits (loop :for i :below n-qubits :collect (cffi:mem-aref (sb-alien:alien-sap qubits-ptr) :int i))))
     (multiple-value-bind (compiled-quil relabeling)
-                         (qvm-app::process-quil compiled-quil)
-                         (let* ((num-qubits (cl-quil:qubits-needed compiled-quil))
-                                (results (qvm-app::%perform-multishot-measure
-                                          'qvm-app::pure-state
-                                          compiled-quil
-                                          num-qubits
-                                          qubits
-                                          trials
-                                          relabeling)))
-                           (loop :for trial :in results
-                                 :for i :below trials :do
-                                 (loop :for value :in trial
-                                       :for j :from 0 :do
-                                       (setf (cffi:mem-aref (sb-alien:alien-sap results-ptr) :int (+ (* i (length trial)) j))
-                                             value)))))))
+        (qvm-app::process-quil compiled-quil)
+      (let* ((num-qubits (cl-quil:qubits-needed compiled-quil))
+             (results (qvm-app::%perform-multishot-measure
+                       'qvm-app::pure-state
+                       compiled-quil
+                       num-qubits
+                       qubits
+                       trials
+                       relabeling)))
+        (loop :for trial :in results
+              :for i :below trials :do
+                (loop :for value :in trial
+                      :for j :from 0 :do
+                        (setf (cffi:mem-aref (sb-alien:alien-sap results-ptr) :int (+ (* i (length trial)) j))
+                              value)))))))
 
 (defun qvm-expectation (state-prep operators-ptr n-operators results-ptr)
   (let* ((operator-programs

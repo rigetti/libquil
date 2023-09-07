@@ -15,7 +15,7 @@ int main(int argc, char **argv) {
 
   quil_program program;
 
-  if (quilc_parse_quil("H 0; CNOT 0 1", &program) != LIBQUIL_ERROR_SUCCESS) {
+  if (quilc_parse_quil("X 0; I 1", &program) != LIBQUIL_ERROR_SUCCESS) {
     LIBQUIL_ERROR("failed to parse quil");
     exit(1);
   }

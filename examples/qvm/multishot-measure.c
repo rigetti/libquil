@@ -16,7 +16,7 @@ int main(int argc, char **argv) {
 
   quil_program program;
 
-  char* source = "DECLARE ro BIT[2]; H 0; CNOT 0 1";
+  char* source = "X 0; X 2";
 
   if (quilc_parse_quil(source, &program) != LIBQUIL_ERROR_SUCCESS) {
     LIBQUIL_ERROR("failed to call quilc_parse_quil");
