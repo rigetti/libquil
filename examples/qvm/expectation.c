@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "libquil.h"
 #include "error.h"
+#include "libquil.h"
 
 void die(char *msg) {
   printf("%s\n", msg);
@@ -14,7 +14,8 @@ double do_expectation(quil_program state_prep, quil_program operator) {
   quil_program operators[1] = {operator};
   double expectations[1] = {0};
 
-  if (qvm_expectation(state_prep, operators, 1, &expectations) != LIBQUIL_ERROR_SUCCESS) {
+  if (qvm_expectation(state_prep, operators, 1, &expectations) !=
+      LIBQUIL_ERROR_SUCCESS) {
     LIBQUIL_ERROR("failed to call qvm_expectation");
     exit(1);
   }
@@ -36,15 +37,15 @@ int main(int argc, char **argv) {
   if (quilc_parse_quil("Z 0", &z) != LIBQUIL_ERROR_SUCCESS) {
     LIBQUIL_ERROR("failed to parse quil");
     exit(1);
-  } 
+  }
   if (quilc_parse_quil("X 0", &x) != LIBQUIL_ERROR_SUCCESS) {
     LIBQUIL_ERROR("failed to parse quil");
     exit(1);
   }
 
-  double ziz_expectation = do_expectation(i, z); 
+  double ziz_expectation = do_expectation(i, z);
   printf("<Z|I|Z> = %f (should be 1.0)\n", ziz_expectation);
-  double xix_expectation = do_expectation(x, z); 
+  double xix_expectation = do_expectation(x, z);
   printf("<Z|X|Z> = %f (should be -1.0)\n", xix_expectation);
 
   lisp_release_handle(i);

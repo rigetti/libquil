@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "libquil.h"
 #include "error.h"
+#include "libquil.h"
 
 void die(char *msg) {
   printf("%s\n", msg);
@@ -21,9 +21,9 @@ int main(int argc, char **argv) {
   }
 
   int n_qubits = 2;
-  int n_amplitudes = n_qubits*n_qubits;
+  int n_amplitudes = n_qubits * n_qubits;
   double wavefunction[n_amplitudes][2];
-  memset(wavefunction, 0, n_amplitudes*2*sizeof(double));
+  memset(wavefunction, 0, n_amplitudes * 2 * sizeof(double));
 
   if (qvm_wavefunction(program, wavefunction) != LIBQUIL_ERROR_SUCCESS) {
     LIBQUIL_ERROR("failed to call qvm_wavefunction");
