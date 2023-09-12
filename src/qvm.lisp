@@ -3,25 +3,36 @@
 (defun qvm-version ()
   (qvm-app::handle-version))
 
+(defun unpack-c-array-to-lisp-list (ptr len type)
+  (loop :for i :below len
+        :collect (cffi:mem-aref (sb-alien:alien-sap ptr) type i)))
+
+(sbcl-librarian:define-handle-type qvm-multishot-addresses "qvm_multishot_addresses")
+
+(defun qvm-multishot-addresses-new ()
+  (make-hash-table :test #'equal))
+
+(defun qvm-multishot-addresses-set (addresses region-name region-indices-ptr len)
+  (let ((indices (unpack-c-array-to-lisp-list region-indices-ptr len :int)))
+    (setf (gethash region-name addresses) indices)))
+
 (sbcl-librarian:define-handle-type qvm-multishot-result "qvm_multishot_result")
 
 (defun qvm-multishot (compiled-quil addresses trials)
   "Executes COMPILED-QUIL on a pure-state QVM TRIALS numbers of times. At the end of each execution, the measurements for ADDRESSES are collected. The return value is a list of those measurements."
   (let* ((num-qubits (cl-quil.frontend::qubits-needed compiled-quil))
-         (addresses (yason:parse addresses))
          (results (qvm-app::%perform-multishot
                    'qvm::pure-state compiled-quil num-qubits addresses trials nil nil)))
     results))
 
 (defun qvm-multishot-result-get (multishot-result address-name shot-index result-pointer)
   (let* ((results (elt (gethash address-name multishot-result) shot-index)))
-    (format t "results: ~a~%" results)
     (loop :for val :in results
           :for i :from 0 :do
             (setf (cffi:mem-aref (sb-alien:alien-sap result-pointer) :int i) val))))
 
 (defun qvm-multishot-measure (compiled-quil qubits-ptr n-qubits trials results-ptr)
-  (let ((qubits (loop :for i :below n-qubits :collect (cffi:mem-aref (sb-alien:alien-sap qubits-ptr) :int i))))
+  (let ((qubits (unpack-c-array-to-lisp-list qubits-ptr n-qubits :int)))
     (multiple-value-bind (compiled-quil relabeling)
         (qvm-app::process-quil compiled-quil)
       (let* ((num-qubits (cl-quil:qubits-needed compiled-quil))
@@ -36,7 +47,8 @@
               :for i :below trials :do
                 (loop :for value :in trial
                       :for j :from 0 :do
-                        (setf (cffi:mem-aref (sb-alien:alien-sap results-ptr) :int (+ (* i (length trial)) j))
+                        (setf (cffi:mem-aref
+                               (sb-alien:alien-sap results-ptr) :int (+ (* i (length trial)) j))
                               value)))))))
 
 (defun qvm-expectation (state-prep operators-ptr n-operators results-ptr)
@@ -50,7 +62,9 @@
            (loop :for p :in (cons state-prep operator-programs)
                  :maximize (cl-quil:qubits-needed p)))
          (expectations (qvm-app::%perform-expectation
-                        'qvm-app::pure-state #'qvm-app::pure-state-expectation state-prep operator-programs num-qubits nil nil)))
+                        'qvm-app::pure-state
+                        #'qvm-app::pure-state-expectation
+                        state-prep operator-programs num-qubits nil nil)))
     (loop :for expectation :in expectations
           :for i :below n-operators :do
             (setf (cffi:mem-aref (sb-alien:alien-sap results-ptr) :double i)
@@ -70,7 +84,9 @@
 (defun qvm-probabilities (program results-ptr)
   (let* ((num-qubits (cl-quil:qubits-needed program))
          (probabilities (multiple-value-bind (qvm probabilities)
-                            (qvm-app::perform-probabilities 'qvm-app::pure-state program num-qubits)
+                            (qvm-app::perform-probabilities
+                             'qvm-app::pure-state
+                             program num-qubits)
                           probabilities)))
     (loop :for probability :across probabilities
           :for i :from 0 :do
@@ -79,28 +95,49 @@
 
 (sbcl-librarian:define-api qvm (:error-map error-map :function-prefix "qvm_")
   (:literal "/* QVM types */")
-  (:type qvm-multishot-result)
+  (:type qvm-multishot-addresses qvm-multishot-result)
   (:literal "/* QVM functions */")
   (:function
    (("get_version_info" qvm-version)
     :string
     ())
+   (("multishot_addresses_new" qvm-multishot-addresses-new)
+    qvm-multishot-addresses
+    ())
+   (("multishot_adddresses_set" qvm-multishot-addresses-set)
+    :void
+    ((addresses qvm-multishot-addresses)
+     (name :string)
+     (indices :pointer)
+     (len :int)))
    (("multishot" qvm-multishot)
     qvm-multishot-result
-    ((program quil-program) (addresses :string) (trials :int)))
+    ((program quil-program) (addresses qvm-multishot-addresses) (trials :int)))
    (("multishot_result_get" qvm-multishot-result-get)
     :void
-    ((qvm-result qvm-multishot-result) (region-name :string) (region-index :int) (result :pointer)))
+    ((qvm-result qvm-multishot-result)
+     (region-name :string)
+     (region-index :int)
+     (result :pointer)))
    (("multishot_measure" qvm-multishot-measure)
     :void
-    ((program quil-program) (qubits :pointer) (n-qubits :int) (trials :int) (result :pointer)))
+    ((program quil-program)
+     (qubits :pointer)
+     (n-qubits :int)
+     (trials :int)
+     (result :pointer)))
    (("expectation" qvm-expectation)
     :void
-    ((state-prep quil-program) (operators :pointer) (n-operators :int) (results-ptr :pointer)))
+    ((state-prep quil-program)
+     (operators :pointer)
+     (n-operators :int)
+     (results-ptr :pointer)))
    (("wavefunction" qvm-wavefunction)
     :void
-    ((program quil-program) (results-ptr :pointer)))
+    ((program quil-program)
+     (results-ptr :pointer)))
    (("probabilities" qvm-probabilities)
     :void
-    ((program quil-program) (results-ptr :pointer)))))
+    ((program quil-program)
+     (results-ptr :pointer)))))
 
