@@ -16,7 +16,7 @@ int main(int argc, char **argv) {
   quil_program program;
 
   char *source =
-      "DECLARE ro BIT[3]; H 0; CNOT 0 1; MEASURE 0 ro[0]; MEASURE 1 ro[1]";
+      "DECLARE ro BIT[3]; X 0; I 1; X 2; MEASURE 0 ro[0]; MEASURE 1 ro[1]; MEASURE 2 ro[2]";
 
   if (quilc_parse_quil(source, &program) != LIBQUIL_ERROR_SUCCESS) {
     LIBQUIL_ERROR("failed to parse quil");
@@ -29,8 +29,8 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
-  int indices[2] = {0, 1};
-  if (qvm_multshot_adddresses_set(addresses, "ro", indices, 2) !=
+  int indices[3] = {0, 1, 2};
+  if (qvm_multishot_addresses_set(addresses, "ro", indices, 3) !=
       LIBQUIL_ERROR_SUCCESS) {
     LIBQUIL_ERROR("failed to set address indices");
     exit(1);
@@ -45,13 +45,13 @@ int main(int argc, char **argv) {
   }
 
   for (int i = 0; i < num_trials; i++) {
-    int vals[2];
+    int vals[3];
     if (qvm_multishot_result_get(qvm_res, "ro", i, &vals) !=
         LIBQUIL_ERROR_SUCCESS) {
       LIBQUIL_ERROR("failed to call qvm_multishot_result_get");
       exit(1);
     }
-    printf("Trial %d\n\tro[0]=%d\n\tro[1]=%d\n", i, vals[0], vals[1]);
+    printf("Trial %d\n\tro[0]=%d\n\tro[1]=%d\n\tro[2]=%d\n", i, vals[0], vals[1], vals[2]);
   }
 
   lisp_release_handle(qvm_res);

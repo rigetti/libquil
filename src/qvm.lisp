@@ -104,7 +104,7 @@
    (("multishot_addresses_new" qvm-multishot-addresses-new)
     qvm-multishot-addresses
     ())
-   (("multishot_adddresses_set" qvm-multishot-addresses-set)
+   (("multishot_addresses_set" qvm-multishot-addresses-set)
     :void
     ((addresses qvm-multishot-addresses)
      (name :string)
