@@ -13,15 +13,24 @@ void die(char *msg) {
 int main(int argc, char **argv) {
   init("../../libquil.core");
 
-  char version[32] = {'\0'};
-  char githash[32] = {'\0'}; 
+  quilc_version_info version_info;
 
-  printf("quilc %s (%s)\n", version, githash);
-
-  if (quilc_get_version_info(version, githash) != LIBQUIL_ERROR_SUCCESS) {
+  if (quilc_get_version_info(&version_info) != LIBQUIL_ERROR_SUCCESS) {
     LIBQUIL_ERROR("failed to call quilc_get_version_info");
     exit(1);
   }
+
+  char* version;
+  char* githash;
+  if (quilc_version_info_version(version_info, &version) != LIBQUIL_ERROR_SUCCESS) {
+    LIBQUIL_ERROR("failed to call quilc_version_info_version");
+    exit(1);
+  }
+  if (quilc_version_info_githash(version_info, &githash) != LIBQUIL_ERROR_SUCCESS) {
+    LIBQUIL_ERROR("failed to call quilc_version_info_githash");
+    exit(1);
+  }
+
 
   printf("quilc %s (%s)\n", version, githash);
 

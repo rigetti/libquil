@@ -1,19 +1,22 @@
 (in-package :libquil)
 
+(sbcl-librarian:define-handle-type quilc-version-info "quilc_version_info")
 (sbcl-librarian:define-handle-type quil-program "quil_program")
 (sbcl-librarian:define-handle-type chip-specification "chip_specification")
 
-(defun quilc-get-version-info (version-ptr githash-ptr)
+(defun quilc-get-version-info ()
   (let ((version quilc::+QUILC-VERSION+)
-        (githash quilc::+GIT-HASH+))
-    (loop :for char :across version
-          :for i :from 0 :do
-            (setf (cffi:mem-aref (sb-alien:alien-sap version-ptr) :char i)
-                  (char-code char)))
-    (loop :for char :across githash
-          :for i :from 0 :do
-            (setf (cffi:mem-aref (sb-alien:alien-sap githash-ptr) :char i)
-                  (char-code char)))))
+        (githash quilc::+GIT-HASH+)
+        (version-info (make-hash-table :test #'equal)))
+    (setf (gethash "version" version-info) version)
+    (setf (gethash "githash" version-info) githash)
+    version-info))
+
+(defun quilc-version-info-version (version-info)
+  (gethash "version" version-info))
+
+(defun quilc-version-info-githash (version-info)
+  (gethash "githash" version-info))
 
 (defun compile-protoquil (parsed-program chip-specification)
   (let ((compiled-program (cl-quil::compiler-hook parsed-program chip-specification :protoquil t)))
@@ -30,10 +33,12 @@
 (sbcl-librarian:define-api quilc (:error-map error-map
                                   :function-prefix "quilc_")
   (:literal "/* Quilc types */")
-  (:type quil-program chip-specification)
+  (:type quil-program chip-specification quilc-version-info)
   (:literal "/* Quilc functions */")
   (:function
-   (("get_version_info" quilc-get-version-info) :void ((version :pointer) (githash :pointer)))
+   (("get_version_info" quilc-get-version-info) quilc-version-info ())
+   (("version_info_version" quilc-version-info-version) :string ((version-info quilc-version-info)))
+   (("version_info_githash" quilc-version-info-githash) :string ((version-info quilc-version-info)))
    (("parse_quil" cl-quil.frontend:safely-parse-quil) quil-program ((source :string)))
    (("print_program" cl-quil.frontend:print-parsed-program) :void ((program quil-program)))
    (("compile_quil" cl-quil:compiler-hook) quil-program ((program quil-program) (chip-spec chip-specification)))

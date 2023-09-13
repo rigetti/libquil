@@ -1,7 +1,21 @@
+
 (in-package :libquil)
 
-(defun qvm-version ()
-  (qvm-app::handle-version))
+(sbcl-librarian:define-handle-type qvm-version-info "qvm_version_info")
+
+(defun qvm-get-version-info ()
+  (let ((version qvm-app::+QVM-VERSION+)
+        (githash qvm-app::+GIT-HASH+)
+        (version-info (make-hash-table :test #'equal)))
+    (setf (gethash "version" version-info) version)
+    (setf (gethash "githash" version-info) githash)
+    version-info))
+
+(defun qvm-version-info-version (version-info)
+  (gethash "version" version-info))
+
+(defun qvm-version-info-githash (version-info)
+  (gethash "githash" version-info))
 
 (defun unpack-c-array-to-lisp-list (ptr len type)
   (loop :for i :below len
@@ -95,12 +109,18 @@
 
 (sbcl-librarian:define-api qvm (:error-map error-map :function-prefix "qvm_")
   (:literal "/* QVM types */")
-  (:type qvm-multishot-addresses qvm-multishot-result)
+  (:type qvm-multishot-addresses qvm-multishot-result qvm-version-info)
   (:literal "/* QVM functions */")
   (:function
-   (("get_version_info" qvm-version)
-    :string
+   (("get_version_info" qvm-get-version-info)
+    qvm-version-info
     ())
+   (("version_info_version" qvm-version-info-version)
+    :string
+    ((version-info qvm-version-info)))
+   (("version_info_githash" qvm-version-info-githash)
+    :string
+    ((version-info qvm-version-info)))
    (("multishot_addresses_new" qvm-multishot-addresses-new)
     qvm-multishot-addresses
     ())
