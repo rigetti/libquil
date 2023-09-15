@@ -14,7 +14,7 @@ all: $(TEST_SRCS:.c=)
 
 %: %.c ../../libquil.so
 	gcc $< -o $@ $(CCFLAGS)
-	patchelf --set-rpath '$$ORIGIN/../../' $@
+	# patchelf --set-rpath '$$ORIGIN/../../' $@
 
 test-%: $(TEST_OBJS)
 	@echo "Testing" $(patsubst test-%,%,$@)

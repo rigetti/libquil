@@ -1,0 +1,33 @@
+[package]
+
+versioned_files = []
+changelog = "CHANGELOG.md"
+
+[[package.assets]]
+path = "artifacts/linux-amd64.zip"
+
+[[workflows]]
+name = "release"
+
+[[workflows.steps]]
+type = "PrepareRelease"
+
+[[workflows.steps]]
+type = "Command"
+command = "echo \"\\\"version\\\"\" > VERSION.txt && git add VERSION.txt"
+variables = { "version" = "Version" }
+
+[[workflows.steps]]
+type = "Command"
+command = "git commit -m \"chore: prepare release $version\""
+
+[workflows.steps.variables]
+"$version" = "Version"
+
+[[workflows.steps]]
+type = "Release"
+
+[github]
+owner = "rigetti"
+repo = "libquil"
+
