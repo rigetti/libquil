@@ -1,9 +1,7 @@
 name: Release libquil
 
-# on:
-#   workflow_dispatch:
 on:
-  pull_request:
+  workflow_dispatch:
 
 jobs:
   build:
