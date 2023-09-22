@@ -2,6 +2,13 @@ name: Release libquil
 
 on:
   workflow_dispatch:
+    inputs:
+      type:
+        description: Bump versions and trigger a new release.
+        required: true
+        default: release
+        options:
+          - release
 
 jobs:
   build:
