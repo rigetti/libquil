@@ -1,0 +1,50 @@
+name: Release libquil
+
+on:
+  workflow_dispatch:
+    inputs:
+      type:
+        description: Bump versions and trigger a new release.
+        required: true
+        default: release
+        options:
+          - release
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.PAT }}
+
+    steps:
+      - run: |
+          git config --global user.name "${{ github.triggering_actor }}"
+          git config --global user.email "${{ github.triggering_actor }}@users.noreply.github.com"
+
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: linux-amd64
+          path: artifacts/
+
+      - name: List artifacts
+        run: ls -R artifacts/
+
+      - name: Install Knope
+        uses: knope-dev/action@v2.0.0
+        with:
+          version: 0.11.0
+
+      - name: List repo
+        run: ls .
+
+      - name: Release
+        run: knope release -v
