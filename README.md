@@ -85,21 +85,25 @@
 
   `result` should be a pointer to memory which has been allocated to store `n_qubits * trials` integers. This memory should be interpreted as the two-dimensional array whose outer dimension is `trials` and whose inner dimension is `n_qubits`.
 
-  See [examples/qvm/multishot.c](examples/qvm/multishot-measure.c)
+  See [examples/qvm/multishot-measure.c](examples/qvm/multishot-measure.c)
 - `libquil_error_t qvm_expectation(quil_program state_prep, void* operators, int n_operators, void* result)`
   Calculate the expectation value `<O|P|O>` where `P` is the provided state preparation program `state_prep` and `O` is an operator, for each `O` in `operators`.
 
   `result` should be a pointer to memory that has been allocated to store `n_operators` double-precision floats.
 
-  See [examples/qvm/multishot.c](examples/qvm/expectation.c)
+  See [examples/qvm/expectation.c](examples/qvm/expectation.c)
 - `libquil_error_t qvm_wavefunction(quil_program program, void* result)`
   Execute `program` on the QVM and return the associated wavefunction
 
   `result` should be a pointer to memory that has been allocated to store `2 * N_q^2` double-precision floats where `N_q` is the number of qubits used in the program. The factor of 2 is here to account for the fact that the wavefunction is a complex-valued vector, thus to represent it in C we need two values: one for the real part and one for the imaginary part. `result` can be interpreted as a two-dimensional array whose outer dimension (size `N_q^2`) is the wavefunction vector index, and whose inner dimension (size `2`) is the pair of values making up the complex value.
+
+  See [examples/qvm/wavefunction.c](examples/qvm/wavefunction.c)
 - `libquil_error_t qvm_probabilities(quil_program program, void* results_ptr)`
   Execute `program` on the QVM and return the wavefunction probabilities
 
   `result` should be a pointer to memory that has been allocated to store `N_q^2` double-precision floats where `N_q` is the number of qubits used in the program. Each index `i` in `result` is the probability of finding the wavefunction in the `|i>` state.
+
+  See [examples/qvm/probabilities.c](examples/qvm/probabilities.c)
 
 ## Lisp functions and types
 
