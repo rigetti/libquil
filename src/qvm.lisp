@@ -17,12 +17,6 @@
 (defun qvm-version-info-githash (version-info)
   (gethash "githash" version-info))
 
-(defun unpack-c-array-to-lisp-list (ptr len type)
-  (loop :for i :below len
-        :collect (cffi:mem-aref (sb-alien:alien-sap ptr) type i)))
-
-(sbcl-librarian:define-handle-type qvm-multishot-addresses "qvm_multishot_addresses")
-
 (defun qvm-multishot-addresses-new ()
   (make-hash-table :test #'equal))
 
@@ -66,12 +60,7 @@
                               value)))))))
 
 (defun qvm-expectation (state-prep operators-ptr n-operators results-ptr)
-  (let* ((operator-programs
-           (loop :for i :below n-operators
-                 :collect (sbcl-librarian::dereference-handle
-                           (sb-alien::sap-alien
-                            (cffi:mem-aref (sb-alien:alien-sap operators-ptr) :pointer i)
-                            (* t)))))
+  (let* ((operator-programs (unpack-c-array-to-list-of-quil-program operators-ptr n-operators))
          (num-qubits
            (loop :for p :in (cons state-prep operator-programs)
                  :maximize (cl-quil:qubits-needed p)))
@@ -160,4 +149,5 @@
     :void
     ((program quil-program)
      (results-ptr :pointer)))))
+
 

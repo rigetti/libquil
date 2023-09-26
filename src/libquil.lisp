@@ -1,5 +1,31 @@
 (in-package #:libquil)
 
+(defun unpack-c-array-to-lisp-list (ptr len type)
+  (loop :for i :below len
+        :collect (cffi:mem-aref (sb-alien:alien-sap ptr) type i)))
+
+(defun unpack-c-array-to-list-of-quil-program (ptr len)
+  (loop :for i :below len
+        :collect (sbcl-librarian::dereference-handle
+                  (sb-alien::sap-alien
+                   (cffi:mem-aref (sb-alien:alien-sap ptr) :pointer i)
+                   (* t)))))
+
+(defun unpack-maybe-nil-pointer (ptr type)
+  (let ((sap (sb-alien:alien-sap ptr)))
+    (unless (cffi:null-pointer-p sap)
+      (cffi:mem-aref sap type))))
+
+(defun unpack-maybe-nil-pointer-to-quil-program (ptr)
+  (let ((sap (sb-alien:alien-sap ptr)))
+    (unless (cffi:null-pointer-p sap)
+      (sbcl-librarian::dereference-handle
+       (sb-alien::sap-alien
+        (cffi:mem-aref sap :pointer)
+        (* t))))))
+
+(sbcl-librarian:define-handle-type qvm-multishot-addresses "qvm_multishot_addresses")
+
 (defvar *last-error* "")
 
 (defun libquil-last-error ()
