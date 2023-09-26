@@ -1,3 +1,5 @@
 version
+conjugate-pauli-by-clifford
+generate-rb-sequence
 compile_commands.json
 .cache
