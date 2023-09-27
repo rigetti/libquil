@@ -49,7 +49,10 @@
              (result (cl-quil.clifford::apply-clifford clifford pauli)))
         (setf (cffi:mem-aref (sb-alien:alien-sap phase-ptr) :int)
               (cl-quil.clifford::phase-factor result))
-        (setf (cffi:mem-aref (sb-alien:alien-sap pauli-ptr) :string)
+        ;; The re-interpretation of PAULI-PTR here is because SBCL-LIBRARIAN has no option
+        ;; to specify the type of a :POINTER (e.g. with (:POINTER :STRING)) and thus
+        ;; they are always provided as (* T). SB-ALIEN:DEREF does not like that.
+        (setf (sb-alien:deref (sb-alien:sap-alien (sb-alien:alien-sap pauli-ptr) (* sb-alien:c-string)))
               (apply #'concatenate 'string
                      (mapcar (alexandria:compose #'symbol-name #'cl-quil.clifford::base4-to-sym)
                              (cl-quil.clifford::base4-list result))))))))
@@ -126,7 +129,7 @@
      (pauli-terms-len :int)
      (clifford quil-program)
      (phase :pointer)
-     (pauli :pointer)))
+     (pauli-ptr :pointer)))
    (("generate_rb_sequence" generate-rb-sequence)
     :void
     ((depth :int)
