@@ -34,11 +34,18 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
+  int offset = 0;
   for (int i = 0; i < depth; i++) {
     printf("sequence %d = [", i);
     for (int j = 0; j < result_lens[i]; j++) {
-      printf("%d", results[i]);
+      printf("%d", results[offset + j]);
+      if (j != result_lens[i] - 1) {
+        printf(", ");
+      } else {
+        printf("]");
+      }
     }
+    offset += result_lens[i];
     printf("\n");
   }
 
