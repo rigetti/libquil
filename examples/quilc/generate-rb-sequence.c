@@ -24,10 +24,12 @@ int main() {
   }
 
   quil_program gateset[] = {phase, h, y};
+  quil_program interleaver = y;
 
-  int *results, result_lens[depth];
+  int result_lens_len = 2 * depth - 1;
+  int *results, result_lens[result_lens_len];
 
-  if (quilc_generate_rb_sequence(depth, qubits, gateset, 3, seed, &y,
+  if (quilc_generate_rb_sequence(depth, qubits, gateset, 3, seed, &interleaver,
                                  &results,
                                  result_lens) != LIBQUIL_ERROR_SUCCESS) {
     LIBQUIL_ERROR("failed to generate RB sequence");
@@ -35,7 +37,7 @@ int main() {
   }
 
   int offset = 0;
-  for (int i = 0; i < depth; i++) {
+  for (int i = 0; i < result_lens_len; i++) {
     printf("sequence %d = [", i);
     for (int j = 0; j < result_lens[i]; j++) {
       printf("%d", results[offset + j]);
