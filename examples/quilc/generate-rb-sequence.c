@@ -29,7 +29,7 @@ int main() {
   int result_lens_len = 2 * depth - 1;
   int *results, result_lens[result_lens_len];
 
-  if (quilc_generate_rb_sequence(depth, qubits, gateset, 3, seed, &interleaver,
+  if (quilc_generate_rb_sequence(depth, qubits, gateset, 3, &seed, &interleaver,
                                  &results,
                                  result_lens) != LIBQUIL_ERROR_SUCCESS) {
     LIBQUIL_ERROR("failed to generate RB sequence");
