@@ -13,7 +13,7 @@ endif
 all: $(TEST_SRCS:.c=)
 
 %: %.c ../../libquil.so
-	gcc $< -o $@ $(CCFLAGS)
+	gcc -Wall -Wextra $< -o $@ $(CCFLAGS)
 	# patchelf --set-rpath '$$ORIGIN/../../' $@
 
 test-%: $(TEST_OBJS)
