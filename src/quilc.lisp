@@ -73,7 +73,7 @@
                                             :collect (position index qubits))))))
            (embedded-interleaver
              (when interleaver
-               (cl-quil.clifford:embed (cl-quil.clifford::clifford-from-quil interleaver)
+               (cl-quil.clifford:embed (cl-quil.clifford::clifford-circuit-p interleaver)
                                        n-qubits
                                        ;; XXX: the embedding ordering has
                                        ;; been reversed to comply with

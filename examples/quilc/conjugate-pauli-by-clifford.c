@@ -4,7 +4,7 @@
 #include "error.h"
 #include "libquil.h"
 
-int main(int argc, char *argv[]) {
+int main() {
   init("../../libquil.core");
 
   quil_program clifford;
