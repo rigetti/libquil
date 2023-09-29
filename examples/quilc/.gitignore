@@ -1,5 +1,6 @@
 version
 conjugate-pauli-by-clifford
 generate-rb-sequence
+compile-protoquil
 compile_commands.json
 .cache

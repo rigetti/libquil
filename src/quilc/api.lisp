@@ -18,11 +18,6 @@
 (defun quilc-version-info-githash (version-info)
   (gethash "githash" version-info))
 
-(defun compile-protoquil (parsed-program chip-specification)
-  (let ((compiled-program (cl-quil::compiler-hook parsed-program chip-specification :protoquil t)))
-    (cl-quil.frontend::transform 'cl-quil.frontend::process-protoquil compiled-program)
-    compiled-program))
-
 (defun program-to-string (program)
   (with-output-to-string (s)
     (cl-quil.frontend:print-parsed-program program s)))
@@ -57,7 +52,7 @@
 (defun generate-rb-sequence (depth n-qubits gateset-ptr gateset-len seed-ptr interleaver-ptr results-ptr result-lens-ptr)
   (let ((gateset (unpack-c-array-to-list-of-quil-program gateset-ptr gateset-len))
         (seed (unpack-maybe-nil-pointer seed-ptr :int))
-        (interleaver (unpack-maybe-nil-pointer-to-quil-program interleaver-ptr)))
+        (interleaver (unpack-maybe-nil-pointer-to-libquil-object interleaver-ptr)))
     (let* ((cliffords (mapcar #'cl-quil.clifford::clifford-circuit-p gateset))
            (qubits-used (mapcar #'cl-quil:qubits-used gateset))
            (qubits-used-by-interleaver
@@ -103,7 +98,7 @@
 (sbcl-librarian:define-api quilc (:error-map error-map
                                   :function-prefix "quilc_")
   (:literal "/* Quilc types */")
-  (:type quil-program chip-specification quilc-version-info)
+  (:type quil-program chip-specification quilc-version-info compilation-metadata)
   (:literal "/* Quilc functions */")
   (:function
    (("get_version_info" quilc-get-version-info) quilc-version-info ())
@@ -112,7 +107,45 @@
    (("parse_quil" cl-quil.frontend:safely-parse-quil) quil-program ((source :string)))
    (("print_program" cl-quil.frontend:print-parsed-program) :void ((program quil-program)))
    (("compile_quil" cl-quil:compiler-hook) quil-program ((program quil-program) (chip-spec chip-specification)))
-   (("compile_protoquil" compile-protoquil) quil-program ((program quil-program) (chip-spec chip-specification)))
+   (("compilation_metadata_len" compilation-metadata-len) :int ((metadata compilation-metadata)))
+   (("compilation_metadata_get_final_rewiring" compilation-metadata-get-final-rewiring)
+    :void
+    ((metadata compilation-metadata)
+     (final-rewiring-ptr :pointer)
+     (final-rewiring-len-ptr :pointer)))
+   (("compilation_metadata_get_gate_volume" compilation-metadata-get-gate-volume)
+    :bool
+    ((metadata compilation-metadata)
+     (gate-volume-ptr :pointer)))
+   (("compilation_metadata_get_gate_depth" compilation-metadata-get-gate-depth)
+    :bool
+    ((metadata compilation-metadata)
+     (gate-depth-ptr :pointer)))
+   (("compilation_metadata_get_multiqubit_gate_depth" compilation-metadata-get-multiqubit-gate-depth)
+    :bool
+    ((metadata compilation-metadata)
+     (gate-depth-ptr :pointer)))
+   (("compilation_metadata_get_topological_swaps" compilation-metadata-get-topological-swaps)
+    :bool
+    ((metadata compilation-metadata)
+     (gate-depth-ptr :pointer)))
+   (("compilation_metadata_get_program_duration" compilation-metadata-get-program-duration)
+    :bool
+    ((metadata compilation-metadata)
+     (duration-ptr :pointer)))
+   (("compilation_metadata_get_program_fidelity" compilation-metadata-get-program-fidelity)
+    :bool
+    ((metadata compilation-metadata)
+     (fidelity-ptr :pointer)))
+   (("compilation_metadata_get_qpu_runtime_estimation" compilation-metadata-get-qpu-runtime-estimation)
+    :bool
+    ((metadata compilation-metadata)
+     (runtime-ptr :pointer)))
+   (("compile_protoquil" compile-protoquil)
+    quil-program
+    ((program quil-program)
+     (chip-spec chip-specification)
+     (metata-ptr :pointer)))
    (("build_nq_linear_chip" cl-quil::build-nq-linear-chip) chip-specification ((n :int)))
    (("chip_spec_from_isa_descriptor" quilc::lookup-isa-descriptor-for-name) chip-specification ((descriptor :string)))
    (("print_chip_spec" cl-quil::debug-print-chip-spec) :void ((chip-spec chip-specification)))
@@ -137,3 +170,31 @@
      (interleaver :pointer)
      (results-ptr :pointer)
      (result-lens-ptr :pointer)))))
+
+;; Mark: this is required until SBCL-LIBRARIAN supports (:pointer :pointer) types.
+(progn
+  (sb-alien:define-alien-callable ("quilc_compile_protoquil"
+                                   quilc-compile-protoquil)
+      sb-alien:int
+      ((program (* t)) (chip-spec (* t))
+       ;; Mark: SBCL-LIBRARIAN would generate the type as (* t) but we need
+       ;; (* (* t)) (i.e a pointer to a pointer) otherwise we cannot use
+       ;; SB-ALIEN:DEREF.
+       (metata-ptr (* (* t)))
+       (sbcl-librarian::result (* (* t))))
+    (let ((program-handle (sbcl-librarian::dereference-handle program))
+          (chip-spec-handle (sbcl-librarian::dereference-handle chip-spec))
+          (metadata-ptr metata-ptr))
+      (block error-map
+        (handler-bind ((t
+                         (lambda (condition)
+                           (setf *last-error* (format nil "~a" condition))
+                           (return-from error-map 1))))
+          (progn
+            (setf (sb-alien:deref sbcl-librarian::result)
+                  (sbcl-librarian::make-handle
+                   (compile-protoquil program-handle chip-spec-handle metadata-ptr)))
+            0)))))
+  (when sbcl-librarian::*initialize-callables-p*
+    (sb-alien::initialize-alien-callable-symbol
+     '("quilc_compile_protoquil" quilc-compile-protoquil))))

@@ -49,7 +49,7 @@ jobs:
 
       - name: Pull Lisp dependencies
         run: |
-          git clone https://github.com/notmgsk/quilc.git $GITHUB_WORKSPACE/quilc && cd $GITHUB_WORKSPACE/quilc && git checkout ffab65ca68b1f995c64aba311ad91ec4149b403d
+          git clone https://github.com/notmgsk/quilc.git $GITHUB_WORKSPACE/quilc && cd $GITHUB_WORKSPACE/quilc && git checkout bffea7fdb972cc9b3a50b790246b6a3143c88c7a
           git clone https://github.com/quil-lang/qvm.git $GITHUB_WORKSPACE/qvm && cd $GITHUB_WORKSPACE/qvm && git checkout 4617625cb6053b1adfd3f7aea9cd2be328b225f6
           git clone https://github.com/quil-lang/magicl.git $GITHUB_WORKSPACE/magicl
           git clone https://github.com/stylewarning/cl-permutation $GITHUB_WORKSPACE/cl-permutation
@@ -70,6 +70,7 @@ jobs:
       - name: Test
         run: |
           cd $GITHUB_WORKSPACE/libquil/examples/qvm && LD_LIBRARY_PATH=../.. make test
+          cd $GITHUB_WORKSPACE/libquil/examples/quilc && LD_LIBRARY_PATH=../.. make test
 
       - name: Package files
         run: |

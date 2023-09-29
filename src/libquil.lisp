@@ -16,13 +16,16 @@
     (unless (cffi:null-pointer-p sap)
       (cffi:mem-aref sap type))))
 
-(defun unpack-maybe-nil-pointer-to-quil-program (ptr)
+(defun unpack-maybe-nil-pointer-to-libquil-object (ptr)
   (let ((sap (sb-alien:alien-sap ptr)))
     (unless (cffi:null-pointer-p sap)
       (sbcl-librarian::dereference-handle
        (sb-alien::sap-alien
         (cffi:mem-aref sap :pointer)
         (* t))))))
+
+(defun null-pointer-p (ptr)
+  (cffi:null-pointer-p (sb-alien:alien-sap ptr)))
 
 (sbcl-librarian:define-handle-type qvm-multishot-addresses "qvm_multishot_addresses")
 
