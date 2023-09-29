@@ -70,6 +70,7 @@ jobs:
       - name: Test
         run: |
           cd $GITHUB_WORKSPACE/libquil/examples/qvm && LD_LIBRARY_PATH=../.. make test
+          cd $GITHUB_WORKSPACE/libquil/examples/quilc && LD_LIBRARY_PATH=../.. make test
 
       - name: Package files
         run: |
