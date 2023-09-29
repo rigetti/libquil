@@ -13,5 +13,8 @@
   :serial t
   :components ((:file "package")
                (:file "libquil")
-               (:file "quilc")
+               (:module "quilc"
+                :serial t
+                :components ((:file "compile")
+                             (:file "api")))
                (:file "qvm")))
