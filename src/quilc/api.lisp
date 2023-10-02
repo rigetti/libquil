@@ -23,7 +23,7 @@
     (cl-quil.frontend:print-parsed-program program s)))
 
 (defun parse-chip-spec-isa-json (isa-json)
-  (time (cl-quil::qpu-hash-table-to-chip-specification (yason:parse isa-json))))
+  (cl-quil::qpu-hash-table-to-chip-specification (yason:parse isa-json)))
 
 (defun conjugate-pauli-by-clifford (pauli-indices-ptr pauli-indices-len pauli-terms-ptr pauli-terms-len clifford-program phase-ptr pauli-ptr)
   (let ((pauli-indices (unpack-c-array-to-lisp-list pauli-indices-ptr pauli-indices-len :int))
