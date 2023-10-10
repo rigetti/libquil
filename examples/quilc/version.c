@@ -31,8 +31,10 @@ int main() {
     exit(1);
   }
 
-
   printf("quilc %s (%s)\n", version, githash);
+
+  free(version);
+  free(githash);
 
   return 0;
 }

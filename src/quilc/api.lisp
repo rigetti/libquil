@@ -12,15 +12,17 @@
     (setf (gethash "githash" version-info) githash)
     version-info))
 
-(defun quilc-version-info-version (version-info)
-  (gethash "version" version-info))
+(defun quilc-version-info-version (version-info ptr)
+  (foreign-alloc-and-set-string ptr (gethash "version" version-info)))
 
-(defun quilc-version-info-githash (version-info)
-  (gethash "githash" version-info))
+(defun quilc-version-info-githash (version-info ptr)
+  (foreign-alloc-and-set-string ptr (gethash "githash" version-info)))
 
-(defun program-to-string (program)
-  (with-output-to-string (s)
-    (cl-quil.frontend:print-parsed-program program s)))
+(defun program-to-string (program ptr)
+  (foreign-alloc-and-set-string
+   ptr
+   (with-output-to-string (s)
+     (cl-quil.frontend:print-parsed-program program s))))
 
 (defun parse-chip-spec-isa-json (isa-json)
   (cl-quil::qpu-hash-table-to-chip-specification (yason:parse isa-json)))
@@ -102,8 +104,8 @@
   (:literal "/* Quilc functions */")
   (:function
    (("get_version_info" quilc-get-version-info) quilc-version-info ())
-   (("version_info_version" quilc-version-info-version) :string ((version-info quilc-version-info)))
-   (("version_info_githash" quilc-version-info-githash) :string ((version-info quilc-version-info)))
+   (("version_info_version" quilc-version-info-version) :void ((version-info quilc-version-info) (ptr :pointer)))
+   (("version_info_githash" quilc-version-info-githash) :void ((version-info quilc-version-info) (ptr :pointer)))
    (("parse_quil" cl-quil.frontend:safely-parse-quil) quil-program ((source :string)))
    (("print_program" cl-quil.frontend:print-parsed-program) :void ((program quil-program)))
    (("compile_quil" cl-quil:compiler-hook) quil-program ((program quil-program) (chip-spec chip-specification)))
@@ -150,7 +152,7 @@
    (("chip_spec_from_isa_descriptor" quilc::lookup-isa-descriptor-for-name) chip-specification ((descriptor :string)))
    (("print_chip_spec" cl-quil::debug-print-chip-spec) :void ((chip-spec chip-specification)))
    (("parse_chip_spec_isa_json" parse-chip-spec-isa-json) chip-specification ((isa-json :string)))
-   (("program_string" program-to-string) :string ((program quil-program)))
+   (("program_string" program-to-string) :void ((program quil-program) (ptr :pointer)))
    (("conjugate_pauli_by_clifford" conjugate-pauli-by-clifford)
     :void
     ((pauli-indices :pointer)

@@ -11,11 +11,11 @@
     (setf (gethash "githash" version-info) githash)
     version-info))
 
-(defun qvm-version-info-version (version-info)
-  (gethash "version" version-info))
+(defun qvm-version-info-version (version-info ptr)
+  (foreign-alloc-and-set-string ptr (gethash "version" version-info)))
 
-(defun qvm-version-info-githash (version-info)
-  (gethash "githash" version-info))
+(defun qvm-version-info-githash (version-info ptr)
+  (foreign-alloc-and-set-string ptr (gethash "githash" version-info)))
 
 (defun qvm-multishot-addresses-new ()
   (make-hash-table :test #'equal))
@@ -105,11 +105,13 @@
     qvm-version-info
     ())
    (("version_info_version" qvm-version-info-version)
-    :string
-    ((version-info qvm-version-info)))
+    :void
+    ((version-info qvm-version-info)
+     (result-ptr :pointer)))
    (("version_info_githash" qvm-version-info-githash)
-    :string
-    ((version-info qvm-version-info)))
+    :void
+    ((version-info qvm-version-info)
+     (result-ptr :pointer)))
    (("multishot_addresses_new" qvm-multishot-addresses-new)
     qvm-multishot-addresses
     ())

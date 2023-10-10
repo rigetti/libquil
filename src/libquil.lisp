@@ -1,5 +1,10 @@
 (in-package #:libquil)
 
+(defun foreign-alloc-and-set-string (c-ptr s)
+  (let* ((ptr (cffi:foreign-alloc :string :initial-element s)))
+    (setf (cffi:mem-ref (sb-alien:alien-sap c-ptr) :pointer)
+          (sb-alien:alien-sap (sb-alien:deref (sb-alien:sap-alien ptr (* (* t))))))))
+
 (defun unpack-c-array-to-lisp-list (ptr len type)
   (loop :for i :below len
         :collect (cffi:mem-aref (sb-alien:alien-sap ptr) type i)))
@@ -47,7 +52,7 @@
         (return-from error-map 1)))))
 
 (sbcl-librarian:define-api common (:error-map error-map
-                                   :function-prefix "libquil_")
+                                   :function-prefix "libquil_") 
   (:type error-type)
   (:function
    (("error" libquil-last-error) :string ())))
