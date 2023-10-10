@@ -28,5 +28,8 @@ int main(int argc, char **argv) {
 
   printf("QVM %s (%s)\n", version, githash);
 
+  free(version);
+  free(githash);
+
   return 0;
 }
