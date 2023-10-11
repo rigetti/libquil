@@ -12,7 +12,7 @@ endif
 all: $(LIBQUIL_TARGET)
 
 libquil.core libquil.c libquil.h libquil.py: src/libquil.lisp src/qvm.lisp src/quilc/*.lisp
-	sbcl --dynamic-space-size 4096 --load "src/build-image.lisp"
+	sbcl --dynamic-space-size 8192 --load "src/build-image.lisp"
 
 $(LIBQUIL_TARGET): libquil.core libquil.c
 	gcc $(CCFLAGS) -o $@ libquil.c -lsbcl
