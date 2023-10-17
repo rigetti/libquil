@@ -150,3 +150,12 @@ jobs:
           cd $GITHUB_WORKSPACE/libquil/examples/qvm && LD_LIBRARY_PATH=../.. make test
           cd $GITHUB_WORKSPACE/libquil/examples/quilc && LD_LIBRARY_PATH=../.. make test
 
+      - name: Package files
+        run: |
+          zip $GITHUB_WORKSPACE/macos.zip $GITHUB_WORKSPACE/libquil/libquil.dylib $GITHUB_WORKSPACE/libquil/libquil.core /usr/local/lib/libsbcl.so
+
+      - name: Store artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: macos
+          path: ${{ github.workspace }}/macos.zip
