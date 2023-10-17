@@ -111,11 +111,11 @@ jobs:
         name: Install SBCL, libraries, and quicklisp
         run: |
           brew install sbcl
-          sudo mkdir -p /usr/src/sbcl
-          sudo git clone --branch x86-null-tn git://git.code.sf.net/p/sbcl/sbcl /usr/src/sbcl
-          cd /usr/src/sbcl && sudo make.sh --without-compact-instance-header --without-immobile-space --without-immobile-code && sudo make-shared-library.sh
+          sudo git clone --branch x86-null-tn git://git.code.sf.net/p/sbcl/sbcl /tmp/sbcl
+          cd /tmp/sbcl && sudo make.sh --without-compact-instance-header --without-immobile-space --without-immobile-code && sudo make-shared-library.sh
           brew remove -f sbcl
           sudo sh install.sh
+          sudo cp src/runtime/libsbcl.so /usr/local/lib/libsbcl.so
 
           brew install wget
           wget -P /tmp/ 'https://beta.quicklisp.org/quicklisp.lisp'
