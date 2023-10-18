@@ -1,3 +1,9 @@
+## 0.0.4 (2023-10-18)
+
+### Features
+
+#### Build macos release artifacts (#26)
+
 ## 0.0.3 (2023-10-11)
 
 ### Features
