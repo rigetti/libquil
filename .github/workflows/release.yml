@@ -29,10 +29,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Download artifacts
+      - name: Download linux artifacts
         uses: actions/download-artifact@v3
         with:
           name: linux-amd64
+          path: artifacts/
+
+      - name: Download macos artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: macos
           path: artifacts/
 
       - name: List artifacts
