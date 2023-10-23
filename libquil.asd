@@ -6,8 +6,7 @@
   :version (:read-file-form "VERSION.txt")
   :license "Apache License 2.0 (See LICENSE.txt)"
   :pathname "src/"
-  :depends-on (#:quilc
-               #:sbcl-librarian
+  :depends-on (#:sbcl-librarian
                #:qvm-app
                )
   :serial t
@@ -15,6 +14,7 @@
                (:file "libquil")
                (:module "quilc"
                 :serial t
-                :components ((:file "compile")
+                :components ((:file "quilc-imports")
+                             (:file "compile")
                              (:file "api")))
                (:file "qvm")))
