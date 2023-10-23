@@ -6,7 +6,7 @@
 
 (defun quilc-get-version-info ()
   (let ((version +QUILC-VERSION+)
-        (githash +GIT-HASH+)
+        (githash +QUILC-GIT-HASH+)
         (version-info (make-hash-table :test #'equal)))
     (setf (gethash "version" version-info) version)
     (setf (gethash "githash" version-info) githash)

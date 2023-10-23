@@ -1,5 +1,7 @@
 ;;; borrowed from quilc: app/src/versions.lisp
 
+(in-package :libquil)
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun system-version (system-designator)
     (let ((sys (asdf:find-system system-designator nil)))
@@ -20,11 +22,11 @@
             output)))))
 
 (alexandria:define-constant +QUILC-VERSION+
- (system-version '#:quilc)
- :test #'string=
- :documentation "The version of the quilc application.")
+    (system-version '#:quilc)
+  :test #'string=
+  :documentation "The version of the quilc application.")
 
-(alexandria:define-constant +GIT-HASH+
+(alexandria:define-constant +QUILC-GIT-HASH+
     (git-hash '#:quilc)
   :test #'string=
   :documentation "The git hash of the quilc repo.")
