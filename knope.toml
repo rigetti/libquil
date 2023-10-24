@@ -6,6 +6,9 @@ changelog = "CHANGELOG.md"
 [[package.assets]]
 path = "artifacts/linux-amd64.zip"
 
+[[package.assets]]
+path = "artifacts/macos.zip"
+
 [[workflows]]
 name = "release"
 
