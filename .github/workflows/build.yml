@@ -63,8 +63,6 @@ jobs:
           cd $GITHUB_WORKSPACE/libquil
           ls
           sbcl --noinform --non-interactive --eval '(ql:quickload :sbcl-librarian)'
-          sbcl --dynamic-space-size 8192 --noinform --non-interactive --eval '(ql:quickload :quilc)'
-          sbcl --noinform --non-interactive --eval '(asdf:locate-system :sbcl-librarian)'
           make
 
       - name: Test
@@ -134,15 +132,13 @@ jobs:
           git clone https://github.com/quil-lang/sbcl-librarian.git $GITHUB_WORKSPACE/sbcl-librarian && cd $GITHUB_WORKSPACE/sbcl-librarian && git checkout 04f7e390c777084ac43b8df9e90593a041da2381
 
       - name: Install quilc dependencies
-        run: brew install lapack openblas libffi zeromq gfortran openssl
+        run: brew install lapack openblas libffi gfortran
 
       - name: Build libquil.dylib
         run: |
           cd $GITHUB_WORKSPACE/libquil
           ls
           sbcl --noinform --non-interactive --eval '(ql:quickload :sbcl-librarian)'
-          sbcl --dynamic-space-size 8192 --noinform --non-interactive --eval '(ql:quickload :quilc)'
-          sbcl --noinform --non-interactive --eval '(asdf:locate-system :sbcl-librarian)'
           make
 
       - name: Test
