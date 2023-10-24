@@ -1,3 +1,9 @@
+## 0.0.5 (2023-10-24)
+
+### Features
+
+#### remove #:quilc and #:qvm-app dependencies (#31)
+
 ## 0.0.4 (2023-10-18)
 
 ### Features
