@@ -35,22 +35,30 @@ jobs:
           name: linux-amd64
           path: artifacts/
 
+      - name: Archive linux artifacts
+        run: |
+          cd artifacts && zip linux-amd64.zip libquil/libsbcl.so libquil/libquil.so libquil/libquil.core libquil/libquil.h
+
       - name: Download macos artifacts
         uses: actions/download-artifact@v3
         with:
           name: macos
           path: artifacts/
 
+      - name: Archive linux artifacts
+        run: |
+          cd artifacts && zip macos.zip libquil/libsbcl.so libquil/libquil.dylib libquil/libquil.core libquil/libquil.h
+
       - name: List artifacts
-        run: ls -R artifacts/
+        run: |
+          ls -R artifacts/
+          unzip -l artifacts/linux-amd64.zip
+          unzip -l artifacts/macos.zip
 
       - name: Install Knope
         uses: knope-dev/action@v2.0.0
         with:
           version: 0.11.0
-
-      - name: List repo
-        run: ls .
 
       - name: Release
         run: knope release -v
