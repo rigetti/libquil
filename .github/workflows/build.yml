@@ -72,13 +72,13 @@ jobs:
 
       - name: Package files
         run: |
-          zip -j $GITHUB_WORKSPACE/linux-amd64.zip $GITHUB_WORKSPACE/libquil/libquil.so $GITHUB_WORKSPACE/libquil/libquil.core /usr/local/lib/libsbcl.so
+          mkdir -p $GITHUB_WORKSPACE/artifacts/libquil && mv $GITHUB_WORKSPACE/libquil/libquil.so $GITHUB_WORKSPACE/libquil/libquil.core /usr/local/lib/libsbcl.so $GITHUB_WORKSPACE/artifacts/libquil
 
       - name: Store artifact
         uses: actions/upload-artifact@v3
         with:
           name: linux-amd64
-          path: ${{ github.workspace }}/linux-amd64.zip
+          path: ${{ github.workspace }}/artifacts/*
 
   build-macos:
     name: Build libquil.dylib
@@ -148,10 +148,10 @@ jobs:
 
       - name: Package files
         run: |
-          zip $GITHUB_WORKSPACE/macos.zip $GITHUB_WORKSPACE/libquil/libquil.dylib $GITHUB_WORKSPACE/libquil/libquil.core /usr/local/lib/libsbcl.so
+          mkdir -p $GITHUB_WORKSPACE/artifacts/libquil && mv $GITHUB_WORKSPACE/libquil/libquil.so $GITHUB_WORKSPACE/libquil/libquil.core /usr/local/lib/libsbcl.so $GITHUB_WORKSPACE/artifacts/libquil
 
       - name: Store artifact
         uses: actions/upload-artifact@v3
         with:
           name: macos
-          path: ${{ github.workspace }}/macos.zip
+          path: ${{ github.workspace }}/artifacts/*
