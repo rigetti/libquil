@@ -1,11 +1,10 @@
-
 (in-package :libquil)
 
 (sbcl-librarian:define-handle-type qvm-version-info "qvm_version_info")
 
 (defun qvm-get-version-info ()
-  (let ((version qvm-app::+QVM-VERSION+)
-        (githash qvm-app::+GIT-HASH+)
+  (let ((version +QVM-VERSION+)
+        (githash +QVM-GIT-HASH+)
         (version-info (make-hash-table :test #'equal)))
     (setf (gethash "version" version-info) version)
     (setf (gethash "githash" version-info) githash)
@@ -29,8 +28,7 @@
 (defun qvm-multishot (compiled-quil addresses trials)
   "Executes COMPILED-QUIL on a pure-state QVM TRIALS numbers of times. At the end of each execution, the measurements for ADDRESSES are collected. The return value is a list of those measurements."
   (let* ((num-qubits (cl-quil.frontend::qubits-needed compiled-quil))
-         (results (qvm-app::%perform-multishot
-                   'qvm::pure-state compiled-quil num-qubits addresses trials nil nil)))
+         (results (%perform-multishot compiled-quil num-qubits addresses trials nil nil)))
     results))
 
 (defun qvm-multishot-result-get (multishot-result address-name shot-index result-pointer)
@@ -42,10 +40,9 @@
 (defun qvm-multishot-measure (compiled-quil qubits-ptr n-qubits trials results-ptr)
   (let ((qubits (unpack-c-array-to-lisp-list qubits-ptr n-qubits :int)))
     (multiple-value-bind (compiled-quil relabeling)
-        (qvm-app::process-quil compiled-quil)
+        (process-quil compiled-quil)
       (let* ((num-qubits (cl-quil:qubits-needed compiled-quil))
-             (results (qvm-app::%perform-multishot-measure
-                       'qvm-app::pure-state
+             (results (%perform-multishot-measure
                        compiled-quil
                        num-qubits
                        qubits
@@ -64,9 +61,8 @@
          (num-qubits
            (loop :for p :in (cons state-prep operator-programs)
                  :maximize (cl-quil:qubits-needed p)))
-         (expectations (qvm-app::%perform-expectation
-                        'qvm-app::pure-state
-                        #'qvm-app::pure-state-expectation
+         (expectations (%perform-expectation
+                        #'pure-state-expectation
                         state-prep operator-programs num-qubits nil nil)))
     (loop :for expectation :in expectations
           :for i :below n-operators :do
@@ -75,7 +71,7 @@
 
 (defun qvm-wavefunction (program results-ptr)
   (let* ((num-qubits (cl-quil:qubits-needed program))
-         (qvm (qvm-app::%execute-quil 'qvm-app::pure-state program num-qubits nil nil))
+         (qvm (%execute-quil program num-qubits nil nil))
          (amplitudes (qvm::amplitudes qvm)))
     (loop :for amplitude :across amplitudes
           :for i :from 0 :do
@@ -86,10 +82,9 @@
 
 (defun qvm-probabilities (program results-ptr)
   (let* ((num-qubits (cl-quil:qubits-needed program))
-         (probabilities (multiple-value-bind (qvm probabilities)
-                            (qvm-app::perform-probabilities
-                             'qvm-app::pure-state
-                             program num-qubits)
+         (probabilities (multiple-value-bind (_ probabilities)
+                            (%perform-probabilities program num-qubits)
+                          (declare (ignore _))
                           probabilities)))
     (loop :for probability :across probabilities
           :for i :from 0 :do

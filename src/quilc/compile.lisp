@@ -70,11 +70,10 @@
 
 (defun compile-protoquil (parsed-program chip-specification metadata-ptr)
   (multiple-value-bind (compiled-program metadata)
-      (quilc::process-program parsed-program chip-specification :protoquil t)
+      (process-program parsed-program chip-specification :protoquil t)
     (unless (null-pointer-p metadata-ptr)
       (let ((handle (sbcl-librarian::make-handle metadata)))
         (setf (sb-alien:deref metadata-ptr)
               handle)))
     (cl-quil.frontend::transform 'cl-quil.frontend::process-protoquil compiled-program)
     compiled-program))
-
