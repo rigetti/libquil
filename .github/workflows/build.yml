@@ -141,10 +141,14 @@ jobs:
           sbcl --noinform --non-interactive --eval '(ql:quickload :sbcl-librarian)'
           make
 
+      - name: ls
+        run: |
+          ls $GITHUB_WORKSPACE/libquil/libquil.dylib
+
       - name: Test
         run: |
-          cd $GITHUB_WORKSPACE/libquil/examples/qvm && DYLD_LIBRARY_PATH=../.. make test
-          cd $GITHUB_WORKSPACE/libquil/examples/quilc && DYLD_LIBRARY_PATH=../.. make test
+          cd $GITHUB_WORKSPACE/libquil/examples/qvm && DYLD_LIBRARY_PATH=$GITHUB_WORKSPACE/libquil make test
+          cd $GITHUB_WORKSPACE/libquil/examples/quilc && DYLD_LIBRARY_PATH=$GITHUB_WORKSPACE/libquil make test
 
       - name: Package files
         run: |
