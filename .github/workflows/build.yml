@@ -148,7 +148,7 @@ jobs:
 
       - name: Package files
         run: |
-          mkdir -p $GITHUB_WORKSPACE/artifacts/libquil && cp $GITHUB_WORKSPACE/libquil/libquil.so $GITHUB_WORKSPACE/libquil/libquil.core /usr/local/lib/libsbcl.so $GITHUB_WORKSPACE/artifacts/libquil
+          mkdir -p $GITHUB_WORKSPACE/artifacts/libquil && cp $GITHUB_WORKSPACE/libquil/libquil.dylib $GITHUB_WORKSPACE/libquil/libquil.core /usr/local/lib/libsbcl.so $GITHUB_WORKSPACE/artifacts/libquil
 
       - name: Store artifact
         uses: actions/upload-artifact@v3
