@@ -56,7 +56,7 @@ jobs:
           git clone https://github.com/quil-lang/sbcl-librarian.git $GITHUB_WORKSPACE/sbcl-librarian && cd $GITHUB_WORKSPACE/sbcl-librarian && git checkout 04f7e390c777084ac43b8df9e90593a041da2381
 
       - name: Install quilc dependencies
-        run: sudo apt update && sudo apt install -y libblas-dev libffi-dev libffi7 liblapack-dev libz-dev libzmq3-dev gfortran libssl-dev
+        run: sudo apt update && sudo apt install -y libblas-dev libffi-dev libffi7 liblapack-dev libz-dev gfortran
 
       - name: Build libquil.so
         run: |
