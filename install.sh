@@ -45,4 +45,7 @@ else
   sudo cp libquil/libquil.dylib libquil/libquil.core libquil/libsbcl.so "${LIBQUIL_LIB_PREFIX}" 
   sudo mkdir -p "${LIBQUIL_INCLUDE_PREFIX}"
   sudo cp libquil/libquil.h "${LIBQUIL_INCLUDE_PREFIX}"
+  sudo xattr -r -d com.apple.quarantine /usr/local/lib/libquil.dylib
+  sudo xattr -r -d com.apple.quarantine /usr/local/lib/libquil.core
+  sudo xattr -r -d com.apple.quarantine /usr/local/lib/libsbcl.so
 fi
