@@ -31,7 +31,6 @@ LIBQUIL_TEMP_DIR="$(mktemp -d)"
 LIBQUIL_LIB_PREFIX="/usr/local/lib"
 LIBQUIL_INCLUDE_PREFIX="/usr/local/include/libquil"
 
-echo "${LIBQUIL_TEMP_DIR}"
 pushd "${LIBQUIL_TEMP_DIR}" || exit
 curl -L "${LIBQUIL_RELEASE_URL}" -o "${LIBQUIL_RELEASE_FILE}"
 unzip "${LIBQUIL_RELEASE_FILE}"
@@ -45,6 +44,9 @@ else
   sudo cp libquil/libquil.dylib libquil/libquil.core libquil/libsbcl.so "${LIBQUIL_LIB_PREFIX}" 
   sudo mkdir -p "${LIBQUIL_INCLUDE_PREFIX}"
   sudo cp libquil/libquil.h "${LIBQUIL_INCLUDE_PREFIX}"
+  # This disables the "cannot open libquil.dylib from untrusted developer" dialog.
+  # A better solution for this would be to properly codesign the files, but that
+  # is a non-trivial amount of work.
   sudo xattr -r -d com.apple.quarantine /usr/local/lib/libquil.dylib
   sudo xattr -r -d com.apple.quarantine /usr/local/lib/libquil.core
   sudo xattr -r -d com.apple.quarantine /usr/local/lib/libsbcl.so
