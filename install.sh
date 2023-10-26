@@ -40,6 +40,7 @@ then
   sudo cp libquil/libquil.so libquil/libquil.core libquil/libsbcl.so "${LIBQUIL_LIB_PREFIX}" 
   sudo mkdir -p "${LIBQUIL_INCLUDE_PREFIX}"
   sudo cp libquil/libquil.h "${LIBQUIL_INCLUDE_PREFIX}"
+  sudo ldconfig
 else
   sudo cp libquil/libquil.dylib libquil/libquil.core libquil/libsbcl.so "${LIBQUIL_LIB_PREFIX}" 
   sudo mkdir -p "${LIBQUIL_INCLUDE_PREFIX}"
