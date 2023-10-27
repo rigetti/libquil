@@ -79,16 +79,19 @@
             (setf (cffi:mem-aref (sb-alien:alien-sap results-ptr) :double i)
                   expectation))))
 
-(defun qvm-wavefunction (program results-ptr)
+(defun qvm-wavefunction (program results-ptr results-len-ptr)
   (let* ((num-qubits (cl-quil:qubits-needed program))
          (qvm (%execute-quil program num-qubits nil nil))
-         (amplitudes (qvm::amplitudes qvm)))
-    (loop :for amplitude :across amplitudes
-          :for i :from 0 :do
-            (setf (cffi:mem-aref (sb-alien:alien-sap results-ptr) :double (* i 2))
-                  (realpart amplitude))
-            (setf (cffi:mem-aref (sb-alien:alien-sap results-ptr) :double (1+ (* i 2)))
-                  (imagpart amplitude)))))
+         (amplitudes (qvm::amplitudes qvm))
+         (amplitude-pairs
+           (alexandria:flatten
+            (loop :for amplitude :across amplitudes
+                  :collect (list (realpart amplitude) (imagpart amplitude)))))
+         (ptr (cffi:foreign-alloc :double :initial-contents amplitude-pairs)))
+    (setf (cffi:mem-aref (sb-alien:alien-sap results-ptr) :pointer)
+          ptr)
+    (setf (cffi:mem-aref (sb-alien:alien-sap results-len-ptr) :int)
+          (length amplitude-pairs))))
 
 (defun qvm-probabilities (program results-ptr)
   (let* ((num-qubits (cl-quil:qubits-needed program))
@@ -162,7 +165,8 @@
    (("wavefunction" qvm-wavefunction)
     :void
     ((program quil-program)
-     (results-ptr :pointer)))
+     (results-ptr :pointer)
+     (results-len-ptr :pointer)))
    (("probabilities" qvm-probabilities)
     :void
     ((program quil-program)
