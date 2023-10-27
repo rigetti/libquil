@@ -1,3 +1,13 @@
+## 0.1.0 (2023-10-27)
+
+### Breaking Changes
+
+#### memory passed to wavefunction should be a double**
+
+### Features
+
+#### foreign allocate wavefunction memory (#40)
+
 ## 0.0.6 (2023-10-27)
 
 ### Features
