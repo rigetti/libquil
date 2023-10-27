@@ -10,13 +10,11 @@ void die(char *msg) {
   exit(1);
 }
 
-int main(int argc, char **argv) {
-  init("../../libquil.core");
-
+void multishot_with_explicit_ro_indices() {
   quil_program program;
 
-  char *source =
-      "DECLARE ro BIT[3]; X 0; I 1; X 2; MEASURE 0 ro[0]; MEASURE 1 ro[1]; MEASURE 2 ro[2]";
+  char *source = "DECLARE ro BIT[3]; X 0; I 1; X 2; MEASURE 0 ro[0]; MEASURE 1 "
+                 "ro[1]; MEASURE 2 ro[2]";
 
   if (quilc_parse_quil(source, &program) != LIBQUIL_ERROR_SUCCESS) {
     LIBQUIL_ERROR("failed to parse quil");
@@ -51,11 +49,69 @@ int main(int argc, char **argv) {
       LIBQUIL_ERROR("failed to call qvm_multishot_result_get");
       exit(1);
     }
-    printf("Trial %d\n\tro[0]=%d\n\tro[1]=%d\n\tro[2]=%d\n", i, vals[0], vals[1], vals[2]);
+    printf("Trial %d\n\tro[0]=%d\n\tro[1]=%d\n\tro[2]=%d\n", i, vals[0],
+           vals[1], vals[2]);
   }
 
   lisp_release_handle(qvm_res);
   lisp_release_handle(program);
+}
+
+void multishot_with_implicit_ro_indices() {
+  quil_program program;
+
+  char *source = "DECLARE ro BIT[3]; X 0; I 1; X 2; MEASURE 0 ro[0]; MEASURE 1 "
+                 "ro[1]; MEASURE 2 ro[2]";
+
+  if (quilc_parse_quil(source, &program) != LIBQUIL_ERROR_SUCCESS) {
+    LIBQUIL_ERROR("failed to parse quil");
+    exit(1);
+  }
+
+  qvm_multishot_addresses addresses;
+  if (qvm_multishot_addresses_new(&addresses) != LIBQUIL_ERROR_SUCCESS) {
+    LIBQUIL_ERROR("failed to create addresses");
+    exit(1);
+  }
+
+  if (qvm_multishot_addresses_set_all(addresses, "ro") !=
+      LIBQUIL_ERROR_SUCCESS) {
+    LIBQUIL_ERROR("failed to set address indices");
+    exit(1);
+  }
+
+  qvm_multishot_result qvm_res;
+  int num_trials = 10;
+  if (qvm_multishot(program, addresses, num_trials, &qvm_res) !=
+      LIBQUIL_ERROR_SUCCESS) {
+    LIBQUIL_ERROR("failed to call qvm_multishot");
+    exit(1);
+  }
+
+  for (int i = 0; i < num_trials; i++) {
+    int *vals, len;
+
+    if (qvm_multishot_result_get_all(qvm_res, "ro", i, &vals, &len) !=
+        LIBQUIL_ERROR_SUCCESS) {
+      LIBQUIL_ERROR("failed to call qvm_multishot_result_get_all");
+      exit(1);
+    }
+
+    printf("Trial %d:\n", i);
+    for (int j = 0; j < len; j++) {
+      printf("\tro[%d]=%d\n", j, vals[j]);
+    }
+  }
+
+  lisp_release_handle(qvm_res);
+  lisp_release_handle(program);
+}
+
+int main(int argc, char **argv) {
+  init("../../libquil.core");
+
+  multishot_with_explicit_ro_indices();
+  multishot_with_implicit_ro_indices();
 
   return 0;
 }

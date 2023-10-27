@@ -23,6 +23,9 @@
   (let ((indices (unpack-c-array-to-lisp-list region-indices-ptr len :int)))
     (setf (gethash region-name addresses) indices)))
 
+(defun qvm-multishot-addresses-set-all (addresses region-name)
+  (setf (gethash region-name addresses) t))
+
 (sbcl-librarian:define-handle-type qvm-multishot-result "qvm_multishot_result")
 
 (defun qvm-multishot (compiled-quil addresses trials)
@@ -36,6 +39,13 @@
     (loop :for val :in results
           :for i :from 0 :do
             (setf (cffi:mem-aref (sb-alien:alien-sap result-pointer) :int i) val))))
+
+(defun qvm-multishot-result-get-all (multishot-result address-name shot-index result-ptr result-len-ptr)
+  (let* ((results (elt (gethash address-name multishot-result) shot-index))
+         (len (length results))
+         (ptr (cffi:foreign-alloc :int :initial-contents results)))
+    (setf (cffi:mem-ref (sb-alien:alien-sap result-ptr) :pointer) ptr)
+    (setf (cffi:mem-ref (sb-alien:alien-sap result-len-ptr) :int) len)))
 
 (defun qvm-multishot-measure (compiled-quil qubits-ptr n-qubits trials results-ptr)
   (let ((qubits (unpack-c-array-to-lisp-list qubits-ptr n-qubits :int)))
@@ -116,6 +126,10 @@
      (name :string)
      (indices :pointer)
      (len :int)))
+   (("multishot_addresses_set_all" qvm-multishot-addresses-set-all)
+    :void
+    ((addresses qvm-multishot-addresses)
+     (name :string)))
    (("multishot" qvm-multishot)
     qvm-multishot-result
     ((program quil-program) (addresses qvm-multishot-addresses) (trials :int)))
@@ -125,6 +139,13 @@
      (region-name :string)
      (region-index :int)
      (result :pointer)))
+   (("multishot_result_get_all" qvm-multishot-result-get-all)
+    :void
+    ((qvm-result qvm-multishot-result)
+     (region-name :string)
+     (shot-index :int)
+     (result :pointer)
+     (result-len :pointer)))
    (("multishot_measure" qvm-multishot-measure)
     :void
     ((program quil-program)
