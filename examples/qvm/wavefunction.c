@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include "error.h"
 #include "libquil.h"
@@ -20,18 +21,16 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
-  int n_qubits = 2;
-  int n_amplitudes = n_qubits * n_qubits;
-  double wavefunction[n_amplitudes][2];
-  memset(wavefunction, 0, n_amplitudes * 2 * sizeof(double));
-
-  if (qvm_wavefunction(program, wavefunction) != LIBQUIL_ERROR_SUCCESS) {
+  int wavefunction_len;
+  double *wavefunction;
+  if (qvm_wavefunction(program, &wavefunction, &wavefunction_len) != LIBQUIL_ERROR_SUCCESS) {
     LIBQUIL_ERROR("failed to call qvm_wavefunction");
     exit(1);
   }
 
+  int n_amplitudes = 4;
   for (int i = 0; i < n_amplitudes; i++) {
-    printf("|%d> = %f + i%f\n", i, wavefunction[i][0], wavefunction[i][1]);
+    printf("|%d> = %f + i%f\n", i, wavefunction[i*2], wavefunction[i*2+1]);
   }
 
   lisp_release_handle(program);
