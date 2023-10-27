@@ -1,3 +1,9 @@
+## 0.0.6 (2023-10-27)
+
+### Features
+
+#### add quilc_multishot_(set|get)_all (#38)
+
 ## 0.0.5 (2023-10-24)
 
 ### Features
