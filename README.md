@@ -2,6 +2,54 @@
 
 `libquil` provides a C API for [Quilc](https://github.com/quil-lang/quilc) and [QVM](https://github.com/quil-lang/qvm).
 
+# Installation
+
+## Requirements
+
+These libraries are required by `libquil`:
+
+- `BLAS`, `LAPACK` for linear algebra routines
+- `libffi` for cross-language execution
+- `libz` for compression
+
+On systems which use `apt` to install packages (e.g. Ubuntu), these libraries can be installed with the command
+
+```
+sudo apt install libblas-dev libffi-dev libffi7 liblapack-dev libz-dev
+```
+
+On systems which use `brew` to install packages (e.g macOS), these libraries can be installed with the command
+
+```
+brew install lapack openblas libffi
+```
+
+## Automated installation
+
+A script is provided to automate installation of the library. It will detect the host operating system and install the library to an appropriate location. A version identifier can be provided to install a particular version of the library. If no version is provided, the latest version of the library will be installed.
+
+> Note: the installer script requires `sudo` to install the library into the system.
+
+> Note: on macOS, `sudo` is also used to mark the library files as trusted. The files themselves are not signed and macOS will, by default, flag them as insecure.
+
+Run the following command
+
+```
+curl https://raw.githubusercontent.com/rigetti/libquil/main/install.sh | bash
+```
+
+If you would like to install a particular version of the library, run the following command
+
+```
+curl https://raw.githubusercontent.com/rigetti/libquil/main/install.sh | bash -s <version-identifier>
+```
+
+replacing `<version-identifier>` with the desired version, e.g. `0.5.0`.
+
+## Manual installation
+
+If you would like to manually install the library (for example in the case where you want to install the library to a non-standard location), find the appropriate version and operating system from the [releases page](https://github.com/rigetti/libquil/releases). Within the `.zip` archive you will find the library and header files that are required to use the library. Move these into your file system.
+
 # C API Reference
 
 ## Libquil functions and types
