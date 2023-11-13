@@ -28,22 +28,49 @@
 
 (sbcl-librarian:define-handle-type qvm-multishot-result "qvm_multishot_result")
 
+(defstruct qvm-multishot-result
+  results-map
+  program-memory-descriptors)
+
 (defun qvm-multishot (compiled-quil addresses trials)
   "Executes COMPILED-QUIL on a pure-state QVM TRIALS numbers of times. At the end of each execution, the measurements for ADDRESSES are collected. The return value is a list of those measurements."
   (let* ((num-qubits (cl-quil.frontend::qubits-needed compiled-quil))
          (results (%perform-multishot compiled-quil num-qubits addresses trials nil nil)))
-    results))
+    (make-qvm-multishot-result
+     :results-map results
+     :program-memory-descriptors (cl-quil:parsed-program-memory-definitions compiled-quil))))
 
 (defun qvm-multishot-result-get (multishot-result address-name shot-index result-pointer)
-  (let* ((results (elt (gethash address-name multishot-result) shot-index)))
+  (let* ((results-map (qvm-multishot-result-results-map multishot-result))
+         (memory-descriptors (qvm-multishot-result-program-memory-descriptors multishot-result))
+         (memory-descriptor (find address-name memory-descriptors
+                                  :key #'cl-quil:memory-descriptor-name
+                                  :test #'equalp))
+         (results (elt (gethash address-name results-map) shot-index)))
     (loop :for val :in results
           :for i :from 0 :do
-            (setf (cffi:mem-aref (sb-alien:alien-sap result-pointer) :int i) val))))
+            (setf (cffi:mem-aref (sb-alien:alien-sap result-pointer)
+                                 (memory-descriptor-type-to-cffi-type
+                                  (cl-quil:memory-descriptor-type memory-descriptor))
+                                 i)
+                  val))))
+
+(defun memory-descriptor-type-to-cffi-type (descriptor-type)
+  (adt:match cl-quil:quil-type descriptor-type
+    (cl-quil:quil-bit :char)
+    (cl-quil:quil-octet :char)
+    (cl-quil:quil-integer :int)
+    (cl-quil:quil-real :double)))
 
 (defun qvm-multishot-result-get-all (multishot-result address-name shot-index result-ptr result-len-ptr)
-  (let* ((results (elt (gethash address-name multishot-result) shot-index))
+  (let* ((results-map (qvm-multishot-result-results-map multishot-result))
+         (results (elt (gethash address-name results-map) shot-index))
          (len (length results))
-         (ptr (cffi:foreign-alloc :int :initial-contents results)))
+         (descriptors (qvm-multishot-result-program-memory-descriptors multishot-result))
+         (memory-descriptor (find address-name descriptors :key #'cl-quil:memory-descriptor-name :test #'equalp))
+         (cffi-type (memory-descriptor-type-to-cffi-type
+                     (cl-quil:memory-descriptor-type memory-descriptor)))
+         (ptr (cffi:foreign-alloc cffi-type :initial-contents results)))
     (setf (cffi:mem-ref (sb-alien:alien-sap result-ptr) :pointer) ptr)
     (setf (cffi:mem-ref (sb-alien:alien-sap result-len-ptr) :int) len)))
 
@@ -135,7 +162,9 @@
      (name :string)))
    (("multishot" qvm-multishot)
     qvm-multishot-result
-    ((program quil-program) (addresses qvm-multishot-addresses) (trials :int)))
+    ((program quil-program)
+     (addresses qvm-multishot-addresses)
+     (trials :int)))
    (("multishot_result_get" qvm-multishot-result-get)
     :void
     ((qvm-result qvm-multishot-result)
