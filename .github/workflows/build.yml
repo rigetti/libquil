@@ -63,6 +63,7 @@ jobs:
           cd $GITHUB_WORKSPACE/libquil
           ls
           sbcl --noinform --non-interactive --eval '(ql:quickload :sbcl-librarian)'
+          sbcl --noinform --non-interactive --eval '(ql:quickload :libquil)'
           make
 
       - name: Test
