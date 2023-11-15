@@ -32,10 +32,14 @@
   results-map
   program-memory-descriptors)
 
-(defun qvm-multishot (compiled-quil addresses trials)
+(defun qvm-multishot (compiled-quil addresses trials gate-noise-ptr measurement-noise-ptr)
   "Executes COMPILED-QUIL on a pure-state QVM TRIALS numbers of times. At the end of each execution, the measurements for ADDRESSES are collected. The return value is a list of those measurements."
   (let* ((num-qubits (cl-quil.frontend::qubits-needed compiled-quil))
-         (results (%perform-multishot compiled-quil num-qubits addresses trials nil nil)))
+         (gate-noise (unless (null-pointer-p gate-noise-ptr)
+                       (unpack-c-array-to-lisp-list gate-noise-ptr 3 :double)))
+         (measurement-noise (unless (null-pointer-p measurement-noise-ptr)
+                              (unpack-c-array-to-lisp-list measurement-noise-ptr 3 :double)))
+         (results (%perform-multishot compiled-quil num-qubits addresses trials gate-noise measurement-noise)))
     (make-qvm-multishot-result
      :results-map results
      :program-memory-descriptors (cl-quil:parsed-program-memory-definitions compiled-quil))))
@@ -164,7 +168,9 @@
     qvm-multishot-result
     ((program quil-program)
      (addresses qvm-multishot-addresses)
-     (trials :int)))
+     (trials :int)
+     (gate-noise :pointer)
+     (measurement-noise :pointer)))
    (("multishot_result_get" qvm-multishot-result-get)
     :void
     ((qvm-result qvm-multishot-result)
