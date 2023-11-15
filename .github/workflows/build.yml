@@ -63,7 +63,7 @@ jobs:
           cd $GITHUB_WORKSPACE/libquil
           ls
           sbcl --noinform --non-interactive --eval '(ql:quickload :sbcl-librarian)'
-          sbcl --noinform --non-interactive --eval '(ql:quickload :libquil)'
+          sbcl --noinform --non-interactive --dynamic-space-size 8192 --eval '(ql:quickload :libquil)'
           make
 
       - name: Test
@@ -140,6 +140,7 @@ jobs:
           cd $GITHUB_WORKSPACE/libquil
           ls
           sbcl --noinform --non-interactive --eval '(ql:quickload :sbcl-librarian)'
+          sbcl --noinform --non-interactive --dynamic-space-size 8192 --eval '(ql:quickload :libquil)'
           make
 
       - name: ls
