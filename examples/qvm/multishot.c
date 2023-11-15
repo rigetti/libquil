@@ -43,7 +43,7 @@ void multishot_with_explicit_ro_indices() {
   }
 
   for (int i = 0; i < num_trials; i++) {
-    int vals[3];
+    char vals[3];
     if (qvm_multishot_result_get(qvm_res, "ro", i, &vals) !=
         LIBQUIL_ERROR_SUCCESS) {
       LIBQUIL_ERROR("failed to call qvm_multishot_result_get");
@@ -89,7 +89,8 @@ void multishot_with_implicit_ro_indices() {
   }
 
   for (int i = 0; i < num_trials; i++) {
-    int *vals, len;
+    int len;
+    char *vals;
 
     if (qvm_multishot_result_get_all(qvm_res, "ro", i, &vals, &len) !=
         LIBQUIL_ERROR_SUCCESS) {

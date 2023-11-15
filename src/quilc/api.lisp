@@ -97,16 +97,43 @@
                  (setf (cffi:mem-aref (sb-alien:alien-sap result-lens-ptr) :int i)
                        (length gls)))))))
 
+(defun find-program-memory-descriptor (program region-name)
+  (let* ((regions (cl-quil:parsed-program-memory-definitions program)))
+    (find region-name regions
+          :key #'cl-quil:memory-descriptor-name
+          :test #'equalp)))
+
+(defun quil-memory-type-to-int (memory-type)
+  (adt:match cl-quil:quil-type memory-type
+    (cl-quil:quil-bit 0)
+    (cl-quil:quil-octet 1)
+    (cl-quil:quil-integer 2)
+    (cl-quil:quil-real 3)))
+
+(defun parsed-program-get-memory-region-type (program region-name region-type-ptr)
+  (let ((region (find-program-memory-descriptor program region-name)))
+    (if (null region)
+        (error "region ~a not found in program" region)
+        (setf (cffi:mem-ref (sb-alien:alien-sap region-type-ptr) :int)
+              (quil-memory-type-to-int (cl-quil:memory-descriptor-type region))))))
+
+(sbcl-librarian:define-enum-type program-memory-type "program_memory_type_t"
+  ("LIBQUIL_TYPE_BIT" 0)
+  ("LIBQUIL_TYPE_OCTET" 1)
+  ("LIBQUIL_TYPE_INTEGER" 2)
+  ("LIBQUIL_TYPE_REAL" 3))
+
 (sbcl-librarian:define-api quilc (:error-map error-map
                                   :function-prefix "quilc_")
   (:literal "/* Quilc types */")
-  (:type quil-program chip-specification quilc-version-info compilation-metadata)
+  (:type program-memory-type quil-program chip-specification quilc-version-info compilation-metadata)
   (:literal "/* Quilc functions */")
   (:function
    (("get_version_info" quilc-get-version-info) quilc-version-info ())
    (("version_info_version" quilc-version-info-version) :void ((version-info quilc-version-info) (ptr :pointer)))
    (("version_info_githash" quilc-version-info-githash) :void ((version-info quilc-version-info) (ptr :pointer)))
    (("parse_quil" cl-quil.frontend:safely-parse-quil) quil-program ((source :string)))
+   (("program_memory_type" parsed-program-get-memory-region-type) :void ((program quil-program) (region-name :string) (region-type-ptr :pointer)))
    (("print_program" cl-quil.frontend:print-parsed-program) :void ((program quil-program)))
    (("compile_quil" cl-quil:compiler-hook) quil-program ((program quil-program) (chip-spec chip-specification)))
    (("compilation_metadata_len" compilation-metadata-len) :int ((metadata compilation-metadata)))

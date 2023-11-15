@@ -33,7 +33,7 @@ jobs:
         name: Install SBCL, libraries, and quicklisp
         run: |
           sudo apt update && sudo apt install -y sbcl build-essential
-          sudo git clone --branch sbcl-2.2.4 git://git.code.sf.net/p/sbcl/sbcl /usr/src/sbcl
+          sudo git clone --single-branch --branch sbcl-2.2.4 git://git.code.sf.net/p/sbcl/sbcl /usr/src/sbcl
           cd /usr/src/sbcl && sudo sh make.sh && sudo sh make-shared-library.sh
           sudo apt remove -y sbcl
           sudo sh install.sh 
@@ -63,6 +63,7 @@ jobs:
           cd $GITHUB_WORKSPACE/libquil
           ls
           sbcl --noinform --non-interactive --eval '(ql:quickload :sbcl-librarian)'
+          sbcl --dynamic-space-size 8192 --noinform --non-interactive --eval '(ql:quickload :libquil)'
           make
 
       - name: Test
@@ -139,6 +140,7 @@ jobs:
           cd $GITHUB_WORKSPACE/libquil
           ls
           sbcl --noinform --non-interactive --eval '(ql:quickload :sbcl-librarian)'
+          sbcl --dynamic-space-size 8192 --noinform --non-interactive --eval '(ql:quickload :libquil)'
           make
 
       - name: ls
