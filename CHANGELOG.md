@@ -1,3 +1,9 @@
+## 0.1.1 (2023-11-15)
+
+### Features
+
+#### Support all Quil types in multishot results (#43)
+
 ## 0.1.0 (2023-10-27)
 
 ### Breaking Changes
