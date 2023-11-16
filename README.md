@@ -136,8 +136,8 @@ If you would like to manually install the library (for example in the case where
 - `libquil_error_t quilc_chip_spec_from_isa_descriptor(char* isa_json, chip_specification* chip_spec)`
   Builds an arbitrary chip specification using the JSON-encoded ISA description
 
-- `libquil_error_t quilc_program_memory_type(quil_program program, char* region_name, int* region_type)
-Returns the `quilc_program_memory_type` for the given memory region
+- `libquil_error_t quilc_program_memory_type(quil_program program, char* region_name, program_memory_type* region_type)`
+  Returns the `quilc_program_memory_type` for the given memory region
 
 ## QVM documentation
 
