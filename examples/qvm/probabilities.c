@@ -25,7 +25,7 @@ int main(int argc, char **argv) {
   double wavefunction[n_probabilities];
   memset(wavefunction, 0, n_probabilities * sizeof(double));
 
-  if (qvm_probabilities(program, wavefunction) != LIBQUIL_ERROR_SUCCESS) {
+  if (qvm_probabilities(program, NULL, wavefunction) != LIBQUIL_ERROR_SUCCESS) {
     LIBQUIL_ERROR("failed to call qvm_probabilities");
     exit(1);
   }

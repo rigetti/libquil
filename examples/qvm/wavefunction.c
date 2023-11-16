@@ -23,7 +23,8 @@ int main(int argc, char **argv) {
 
   int wavefunction_len;
   double *wavefunction;
-  if (qvm_wavefunction(program, &wavefunction, &wavefunction_len) != LIBQUIL_ERROR_SUCCESS) {
+  int seed = 0;
+  if (qvm_wavefunction(program, &seed, &wavefunction, &wavefunction_len) != LIBQUIL_ERROR_SUCCESS) {
     LIBQUIL_ERROR("failed to call qvm_wavefunction");
     exit(1);
   }

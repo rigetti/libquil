@@ -11,6 +11,11 @@
     :test #'string= :documentation "The git hash of the QVM repo.")
   )
 
+(defun get-random-state (arg)
+  (etypecase arg
+    (null (qvm:seeded-random-state nil))
+    (unsigned-byte (qvm:seeded-random-state arg))))
+
 (defun qubits-in-range-p (qam qubits)
   "Are all qubits in the list QUBITS in range of the QAM?"
   (loop :with maxq := (1- (qvm:number-of-qubits qam))
@@ -353,8 +358,6 @@ The mapping vector V specifies that the qubit as specified in the program V[i] h
                        (setf expectation (funcall expectation-op qvm prepared-wf op first-time))
                        (setf first-time nil)
                        (assert (< (abs (imagpart expectation)) 1e-14))
-                       (unless (zerop (imagpart expectation))
-                         (warn "Non-zero but acceptable imaginary part of expectation value: ~A" expectation))
                        (realpart expectation))))))
 
 (defun pure-state-expectation (qvm prepared-state op &optional first-time)

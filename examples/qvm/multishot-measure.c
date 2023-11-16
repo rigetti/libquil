@@ -28,8 +28,8 @@ int main(int argc, char **argv) {
   memset(qubits, 0, n_qubits * sizeof(int));
   int results[num_trials][n_qubits];
   memset(results, 0, num_trials * n_qubits * sizeof(int));
-  if (qvm_multishot_measure(program, qubits, n_qubits, num_trials, &results) !=
-      LIBQUIL_ERROR_SUCCESS) {
+  if (qvm_multishot_measure(program, qubits, n_qubits, num_trials, NULL,
+                            &results) != LIBQUIL_ERROR_SUCCESS) {
     LIBQUIL_ERROR("failed to call qvm_multishot_measure");
     exit(1);
   }

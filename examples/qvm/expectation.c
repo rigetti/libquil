@@ -14,7 +14,7 @@ double do_expectation(quil_program state_prep, quil_program operator) {
   quil_program operators[1] = {operator};
   double expectations[1] = {0};
 
-  if (qvm_expectation(state_prep, operators, 1, &expectations) !=
+  if (qvm_expectation(state_prep, operators, 1, NULL, &expectations) !=
       LIBQUIL_ERROR_SUCCESS) {
     LIBQUIL_ERROR("failed to call qvm_expectation");
     exit(1);
