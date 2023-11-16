@@ -353,8 +353,6 @@ The mapping vector V specifies that the qubit as specified in the program V[i] h
                        (setf expectation (funcall expectation-op qvm prepared-wf op first-time))
                        (setf first-time nil)
                        (assert (< (abs (imagpart expectation)) 1e-14))
-                       (unless (zerop (imagpart expectation))
-                         (warn "Non-zero but acceptable imaginary part of expectation value: ~A" expectation))
                        (realpart expectation))))))
 
 (defun pure-state-expectation (qvm prepared-state op &optional first-time)
