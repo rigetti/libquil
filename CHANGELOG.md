@@ -1,3 +1,13 @@
+## 0.3.0 (2023-11-16)
+
+### Breaking Changes
+
+#### adds a `rng_seed` parameter to QVM functions
+
+### Fixes
+
+#### Provide RNG seed for QVM (#47)
+
 ## 0.2.0 (2023-11-16)
 
 ### Breaking Changes
