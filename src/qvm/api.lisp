@@ -32,14 +32,17 @@
   results-map
   program-memory-descriptors)
 
-(defun qvm-multishot (compiled-quil addresses trials gate-noise-ptr measurement-noise-ptr)
+(defun qvm-multishot (compiled-quil addresses trials gate-noise-ptr measurement-noise-ptr rng-seed-ptr)
   "Executes COMPILED-QUIL on a pure-state QVM TRIALS numbers of times. At the end of each execution, the measurements for ADDRESSES are collected. The return value is a list of those measurements."
   (let* ((num-qubits (cl-quil.frontend::qubits-needed compiled-quil))
          (gate-noise (unless (null-pointer-p gate-noise-ptr)
                        (unpack-c-array-to-lisp-list gate-noise-ptr 3 :double)))
          (measurement-noise (unless (null-pointer-p measurement-noise-ptr)
                               (unpack-c-array-to-lisp-list measurement-noise-ptr 3 :double)))
-         (results (%perform-multishot compiled-quil num-qubits addresses trials gate-noise measurement-noise)))
+         (rng-seed (unpack-maybe-nil-pointer rng-seed-ptr :int))
+         (results
+           (qvm:with-random-state ((get-random-state rng-seed))
+             (%perform-multishot compiled-quil num-qubits addresses trials gate-noise measurement-noise))))
     (make-qvm-multishot-result
      :results-map results
      :program-memory-descriptors (cl-quil:parsed-program-memory-definitions compiled-quil))))
@@ -78,17 +81,20 @@
     (setf (cffi:mem-ref (sb-alien:alien-sap result-ptr) :pointer) ptr)
     (setf (cffi:mem-ref (sb-alien:alien-sap result-len-ptr) :int) len)))
 
-(defun qvm-multishot-measure (compiled-quil qubits-ptr n-qubits trials results-ptr)
-  (let ((qubits (unpack-c-array-to-lisp-list qubits-ptr n-qubits :int)))
+(defun qvm-multishot-measure (compiled-quil qubits-ptr n-qubits trials rng-seed-ptr results-ptr)
+  (let ((qubits (unpack-c-array-to-lisp-list qubits-ptr n-qubits :int))
+        (rng-seed (unpack-maybe-nil-pointer rng-seed-ptr :int)))
     (multiple-value-bind (compiled-quil relabeling)
         (process-quil compiled-quil)
       (let* ((num-qubits (cl-quil:qubits-needed compiled-quil))
-             (results (%perform-multishot-measure
-                       compiled-quil
-                       num-qubits
-                       qubits
-                       trials
-                       relabeling)))
+             (results
+               (qvm:with-random-state ((get-random-state rng-seed))
+                 (%perform-multishot-measure
+                  compiled-quil
+                  num-qubits
+                  qubits
+                  trials
+                  relabeling))))
         (loop :for trial :in results
               :for i :below trials :do
                 (loop :for value :in trial
@@ -97,22 +103,27 @@
                                (sb-alien:alien-sap results-ptr) :int (+ (* i (length trial)) j))
                               value)))))))
 
-(defun qvm-expectation (state-prep operators-ptr n-operators results-ptr)
+(defun qvm-expectation (state-prep operators-ptr n-operators rng-seed-ptr results-ptr)
   (let* ((operator-programs (unpack-c-array-to-list-of-quil-program operators-ptr n-operators))
          (num-qubits
            (loop :for p :in (cons state-prep operator-programs)
                  :maximize (cl-quil:qubits-needed p)))
-         (expectations (%perform-expectation
-                        #'pure-state-expectation
-                        state-prep operator-programs num-qubits nil nil)))
+         (rng-seed (unpack-maybe-nil-pointer rng-seed-ptr :int))
+         (expectations
+           (qvm:with-random-state ((get-random-state rng-seed))
+             (%perform-expectation
+              #'pure-state-expectation
+              state-prep operator-programs num-qubits nil nil))))
     (loop :for expectation :in expectations
           :for i :below n-operators :do
             (setf (cffi:mem-aref (sb-alien:alien-sap results-ptr) :double i)
                   expectation))))
 
-(defun qvm-wavefunction (program results-ptr results-len-ptr)
+(defun qvm-wavefunction (program rng-seed-ptr results-ptr results-len-ptr)
   (let* ((num-qubits (cl-quil:qubits-needed program))
-         (qvm (%execute-quil program num-qubits nil nil))
+         (rng-seed (unpack-maybe-nil-pointer rng-seed-ptr :int))
+         (qvm (qvm:with-random-state ((get-random-state rng-seed))
+                (%execute-quil program num-qubits nil nil)))
          (amplitudes (qvm::amplitudes qvm))
          (amplitude-pairs
            (alexandria:flatten
@@ -124,10 +135,12 @@
     (setf (cffi:mem-aref (sb-alien:alien-sap results-len-ptr) :int)
           (length amplitude-pairs))))
 
-(defun qvm-probabilities (program results-ptr)
+(defun qvm-probabilities (program rng-seed-ptr results-ptr)
   (let* ((num-qubits (cl-quil:qubits-needed program))
+         (rng-seed (unpack-maybe-nil-pointer rng-seed-ptr :int))
          (probabilities (multiple-value-bind (_ probabilities)
-                            (%perform-probabilities program num-qubits)
+                            (qvm:with-random-state ((get-random-state rng-seed))
+                              (%perform-probabilities program num-qubits))
                           (declare (ignore _))
                           probabilities)))
     (loop :for probability :across probabilities
@@ -170,7 +183,8 @@
      (addresses qvm-multishot-addresses)
      (trials :int)
      (gate-noise :pointer)
-     (measurement-noise :pointer)))
+     (measurement-noise :pointer)
+     (rng-seed :pointer)))
    (("multishot_result_get" qvm-multishot-result-get)
     :void
     ((qvm-result qvm-multishot-result)
@@ -190,21 +204,25 @@
      (qubits :pointer)
      (n-qubits :int)
      (trials :int)
+     (rng-seed :pointer)
      (result :pointer)))
    (("expectation" qvm-expectation)
     :void
     ((state-prep quil-program)
      (operators :pointer)
      (n-operators :int)
+     (rng-seed :pointer)
      (results-ptr :pointer)))
    (("wavefunction" qvm-wavefunction)
     :void
     ((program quil-program)
+     (rng-seed :pointer)
      (results-ptr :pointer)
      (results-len-ptr :pointer)))
    (("probabilities" qvm-probabilities)
     :void
     ((program quil-program)
+     (rng-seed :pointer)
      (results-ptr :pointer)))))
 
 

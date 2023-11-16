@@ -11,6 +11,11 @@
     :test #'string= :documentation "The git hash of the QVM repo.")
   )
 
+(defun get-random-state (arg)
+  (etypecase arg
+    (null (qvm:seeded-random-state nil))
+    (unsigned-byte (qvm:seeded-random-state arg))))
+
 (defun qubits-in-range-p (qam qubits)
   "Are all qubits in the list QUBITS in range of the QAM?"
   (loop :with maxq := (1- (qvm:number-of-qubits qam))
