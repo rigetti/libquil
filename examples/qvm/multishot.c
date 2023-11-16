@@ -83,7 +83,7 @@ void multishot_with_implicit_ro_indices() {
   qvm_multishot_result qvm_res;
   int num_trials = 10;
   double gate_noise[] = {0.0, 0.0, 0.0};
-  if (qvm_multishot(program, addresses, num_trials, &qvm_res, NULL, NULL) !=
+  if (qvm_multishot(program, addresses, num_trials, NULL, NULL, &qvm_res) !=
       LIBQUIL_ERROR_SUCCESS) {
     LIBQUIL_ERROR("failed to call qvm_multishot");
     exit(1);
@@ -162,7 +162,8 @@ int main(int argc, char **argv) {
   init("../../libquil.core");
 
   multishot_with_explicit_ro_indices();
-  // multishot_with_implicit_ro_indices();
+  multishot_with_implicit_ro_indices();
+  multishot_with_noise();
 
   return 0;
 }
