@@ -61,7 +61,18 @@ If you would like to manually install the library (for example in the case where
 
   When any error is encountered by libquil, it will be stored in memory. A subsequent call to `libquil_error` will return that error message. After calling `libquil_error`, the error is cleared from memory such that immediately calling `libquil_error` after a previous call will return an empty string (indicating no errors since the previous error).
 
-## Quilc functions and types
+## Quilc documentation
+
+### Enums
+
+- `program_memory_type_t`
+  The Quil program memory types.
+  - `LIBQUIL_TYPE_BIT` is the Quil `BIT` memory type
+  - `LIBQUIL_TYPE_OCTET` is the Quil `OCTET` memory type
+  - `LIBQUIL_TYPE_INTEGER` is the Quil `INTEGER` memory type
+  - `LIBQUIL_TYPE_REAL` is the Quil `REAL` memory type
+
+### Types
 
 - `quil_program`
   An opaque pointer to a Quilc program object
@@ -71,6 +82,11 @@ If you would like to manually install the library (for example in the case where
   An opaque pointer to a Quilc version object
 
   See [examples/quilc/version.c](examples/quilc/version.c)
+
+- `quilc_compilation_metadata`
+  Stores compilation metadata returned by `quilc_compile_protoquil`
+
+### Functions
 
 - `libquil_error quilc_get_version_info(quilc_version_info *version_info)`
   Allocates a `quilc_version_info` object and stores the pointer to it in `version_info`
@@ -120,7 +136,12 @@ If you would like to manually install the library (for example in the case where
 - `libquil_error_t quilc_chip_spec_from_isa_descriptor(char* isa_json, chip_specification* chip_spec)`
   Builds an arbitrary chip specification using the JSON-encoded ISA description
 
-## QVM functions and types
+- `libquil_error_t quilc_program_memory_type(quil_program program, char* region_name, int* region_type)
+Returns the `quilc_program_memory_type` for the given memory region
+
+## QVM documentation
+
+### Types
 
 - `qvm_multishot_addresses`
   An opaque pointer to a QVM multishot addresses object
@@ -128,6 +149,9 @@ If you would like to manually install the library (for example in the case where
   An opaque pointer to a QVM multishot result object
 - `libquil_error_t qvm_version_info`
   An opaque pointer to a QVM version info object
+
+### Functions
+
 - `libquil_error_t qvm_get_version_info(qvm_version_info* version_info)`
   Get a new `qvm_version_info`
 - `libquil_error_t qvm_version_info_version(qvm_version_info version_info, char** version)`
@@ -141,8 +165,15 @@ If you would like to manually install the library (for example in the case where
 
   For example, if your register was named `ro` and you wanted to get indices 0 and 2, you would provide `"ro"` for `name` and `{0, 2}` for `indices`. (`len` is the length of `indices`.)
 
-- `libquil_error_t qvm_multishot(quil_program program, qvm_multishot_addresses addresses, int trials, qvm_multishot_result *result)`
-  Execute `program` on the QVM `trials`-number of times, collecting the `addresses` into `result`
+- `libquil_error_t qvm_multishot_addresses_get_all(qvm_multishot_addresses addresses, char* name, int shot_index, void\*\* results, int* results_len)
+  Request all results for the given memory address.
+
+  On return, `*results` will be an array of length `results_len`. The specific data type contained in the array is to be interpreted by the caller.
+
+- `libquil_error_t qvm_multishot(quil_program program, qvm_multishot_addresses addresses, int trials, double* gate_noise, double* measurement_noise, qvm_multishot_result *result)`
+  Execute `program` on the QVM `trials`-number of times, collecting the `addresses` into `result`.
+
+  `gate_noise` and `measurement_noise` are length-3 arrays which affect gate execution and measurement respectively. One or both can be `NULL` which indicates no noise is to be applied.
 
   See [examples/qvm/multishot.c](examples/qvm/multishot.c)
 
