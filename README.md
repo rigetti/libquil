@@ -44,7 +44,7 @@ If you would like to install a particular version of the library, run the follow
 curl https://raw.githubusercontent.com/rigetti/libquil/main/install.sh | bash -s <version-identifier>
 ```
 
-replacing `<version-identifier>` with the desired version, e.g. `0.5.0`.
+replacing `<version-identifier>` with the desired version, e.g. `0.3.0`.
 
 ## Manual installation
 
