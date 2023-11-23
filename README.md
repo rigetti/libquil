@@ -4,6 +4,15 @@
 
 # Installation
 
+## Supported operating systems and architectures
+
+We provide pre-built binaries for the following systems
+
+- Linux x64 (tested specifically on Ubuntu)
+- macOS x64
+
+Note that ARM is not yet supported on any of the above.
+
 ## Requirements
 
 These libraries are required by `libquil`:
