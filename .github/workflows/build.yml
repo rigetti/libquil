@@ -161,3 +161,85 @@ jobs:
         with:
           name: macos
           path: ${{ github.workspace }}/artifacts/*
+
+  build-macos-arm:
+    name: Build Apple-Silicon libquil.dylib
+    runs-on: macos-latest-xlarge
+
+    steps:
+
+      - uses: actions/checkout@v2
+        with:
+          path: "libquil"
+
+      - name: Cache SBCL
+        id: cache-sbcl-macos
+        uses: actions/cache@v3
+        with:
+          path: |
+            /usr/local/lib/libsbcl.so
+            /usr/local/lib/sbcl
+            /usr/local/bin/sbcl
+            ~/quicklisp
+            ~/.sbclrc
+          key: ${{ runner.os }}-build-${{ hashFiles('**/macos-versions' )}}
+
+      - uses: Homebrew/actions/setup-homebrew@master
+        name: Setup homebrew
+
+      - if: steps.cache-sbcl-macos.outputs.cache-hit != 'true'
+        name: Install SBCL, libraries, and quicklisp
+        run: |
+          brew install sbcl git
+          git clone --branch sbcl-2.2.4 https://git.code.sf.net/p/sbcl/sbcl /tmp/sbcl
+          cd /tmp/sbcl && sudo sh make.sh --without-compact-instance-header --without-immobile-space --without-immobile-code && sudo sh make-shared-library.sh
+          brew remove -f sbcl
+          sudo sh install.sh
+          sudo cp src/runtime/libsbcl.so /usr/local/lib/libsbcl.so
+
+          brew install wget
+          wget -P /tmp/ 'https://beta.quicklisp.org/quicklisp.lisp'
+          sbcl --noinform --non-interactive --load /tmp/quicklisp.lisp --eval "(quicklisp-quickstart:install :dist-url \"http://beta.quicklisp.org/dist/quicklisp/2022-04-01/distinfo.txt\")"
+          sbcl --noinform --non-interactive --load ~/quicklisp/setup.lisp --eval '(ql-util:without-prompting (ql:add-to-init-file))'
+          echo "#+quicklisp(push (truename \"$GITHUB_WORKSPACE\") ql:*local-project-directories*)" >> ~/.sbclrc
+          rm -f /tmp/quicklisp.lisp
+          cat ~/.sbclrc
+
+      - name: Pull Lisp dependencies
+        run: |
+          git clone https://github.com/notmgsk/quilc.git $GITHUB_WORKSPACE/quilc && cd $GITHUB_WORKSPACE/quilc && git checkout bffea7fdb972cc9b3a50b790246b6a3143c88c7a
+          git clone https://github.com/quil-lang/qvm.git $GITHUB_WORKSPACE/qvm && cd $GITHUB_WORKSPACE/qvm && git checkout 4617625cb6053b1adfd3f7aea9cd2be328b225f6
+          git clone https://github.com/quil-lang/magicl.git $GITHUB_WORKSPACE/magicl
+          git clone https://github.com/stylewarning/cl-permutation $GITHUB_WORKSPACE/cl-permutation
+          git clone https://github.com/quil-lang/sbcl-librarian.git $GITHUB_WORKSPACE/sbcl-librarian && cd $GITHUB_WORKSPACE/sbcl-librarian && git checkout 04f7e390c777084ac43b8df9e90593a041da2381
+
+      - name: Install quilc dependencies
+        run: brew install lapack openblas libffi gfortran
+
+      - name: Build libquil.dylib
+        run: |
+          cd $GITHUB_WORKSPACE/libquil
+          ls
+          sbcl --noinform --non-interactive --eval '(ql:quickload :sbcl-librarian)'
+          sbcl --dynamic-space-size 8192 --noinform --non-interactive --eval '(ql:quickload :libquil)'
+          make
+
+      - name: ls
+        run: |
+          ls $GITHUB_WORKSPACE/libquil/libquil.dylib
+
+      - name: Test
+        run: |
+          cd $GITHUB_WORKSPACE/libquil/examples/qvm && DYLD_LIBRARY_PATH=$GITHUB_WORKSPACE/libquil make test
+          cd $GITHUB_WORKSPACE/libquil/examples/quilc && DYLD_LIBRARY_PATH=$GITHUB_WORKSPACE/libquil make test
+
+      - name: Package files
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/artifacts/libquil && cp $GITHUB_WORKSPACE/libquil/libquil.h $GITHUB_WORKSPACE/libquil/libquil.dylib $GITHUB_WORKSPACE/libquil/libquil.core /usr/local/lib/libsbcl.so $GITHUB_WORKSPACE/artifacts/libquil
+
+      - name: Store artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: macos
+          path: ${{ github.workspace }}/artifacts/*
+
