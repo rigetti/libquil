@@ -11,6 +11,16 @@
     :test #'string= :documentation "The git hash of the QVM repo.")
   )
 
+(defun compress-program-qubits (quil)
+  (let* ((quil (cl-quil:copy-instance quil))
+         (trivial-mapping-p
+           (loop :for x :across (cl-quil::compute-qubit-mapping quil)
+                 :for i :from 0
+                 :always (= x i))))
+    (unless trivial-mapping-p
+      (cl-quil::transform 'cl-quil::compress-qubits quil))
+    quil))
+
 (defun get-random-state (arg)
   (etypecase arg
     (null (qvm:seeded-random-state nil))
@@ -225,19 +235,6 @@ single qubit readout povm.
               :collect (progn
                          (reload qvm)
                          (parallel-measure qvm qubits)))))))
-
-(defun process-quil (quil)
-  "Prepare the PARSED-PROGRAM QUIL for more efficient execution. Currently this only includes remapping the qubits to a minimal sequential set from 0 to (num-qubits-used - 1). Return two values: the processed Quil code and the mapping vector.
-
-The mapping vector V specifies that the qubit as specified in the program V[i] has been mapped to qubit i."
-  (let* ((mapping (cl-quil::compute-qubit-mapping quil))
-         (trivial-mapping-p
-           (loop :for x :across mapping
-                 :for i :from 0
-                 :always (= x i))))
-    (unless trivial-mapping-p
-      (cl-quil::transform 'cl-quil::compress-qubits quil))
-    (values quil mapping)))
 
 (defun valid-address-query-p (addresses)
   (cond

@@ -1,7 +1,7 @@
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 
 #include "error.h"
 #include "libquil.h"
@@ -24,14 +24,16 @@ int main(int argc, char **argv) {
   int wavefunction_len;
   double *wavefunction;
   int seed = 0;
-  if (qvm_wavefunction(program, &seed, &wavefunction, &wavefunction_len) != LIBQUIL_ERROR_SUCCESS) {
+  if (qvm_wavefunction(program, &seed, &wavefunction, &wavefunction_len) !=
+      LIBQUIL_ERROR_SUCCESS) {
     LIBQUIL_ERROR("failed to call qvm_wavefunction");
     exit(1);
   }
 
   int n_amplitudes = 4;
   for (int i = 0; i < n_amplitudes; i++) {
-    printf("|%d> = %f + i%f\n", i, wavefunction[i*2], wavefunction[i*2+1]);
+    printf("|%d> = %f + i%f\n", i, wavefunction[i * 2],
+           wavefunction[i * 2 + 1]);
   }
 
   lisp_release_handle(program);
