@@ -10,10 +10,7 @@ We provide pre-built binaries for the following systems
 
 - Linux x64 (tested specifically on Ubuntu)
 - macOS x64
-
-Note that we do not publish pre-built binaries for ARM. ARM machines, including
-Apple Silicon, are supported when building from source — see [Building from
-source](#building-from-source).
+- macOS aarch64
 
 ## Requirements
 
@@ -80,7 +77,7 @@ finds it automatically. To use one from elsewhere, pass it explicitly:
 make LIBSBCL=/path/to/sbcl/src/runtime/libsbcl.a
 ```
 
-Note that on arm64 macOS, SBCL only builds its runtime as the static
+Note that on aarch64 macOS, SBCL only builds its runtime as the static
 `libsbcl.a`; there is no shared `libsbcl.dylib` on that platform. The `Makefile`
 handles either form.
 
@@ -91,9 +88,9 @@ in your Quicklisp local-projects directory. Then:
 make
 ```
 
-### Linear algebra backend on arm64 macOS
+### Linear algebra backend on aarch64 macOS
 
-Homebrew's reference `lapack` computes incorrect eigenvectors on arm64, which
+Homebrew's reference `lapack` computes incorrect eigenvectors on aarch64, which
 surfaces as `Could not find diagonalizer for matrix ... after 16 attempts`
 during compilation. Install OpenBLAS (`brew install openblas`) and ensure
 `magicl` loads it in preference to `lapack`.
