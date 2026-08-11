@@ -189,10 +189,10 @@ Three fixes, on the `fix-secondary-system-bundles` branch:
 
 ## Open
 
-**CI cannot go green until the sbcl-librarian fixes are reachable.** `build.yml`
-clones `$SBCL_LIBRARIAN_REPO` at `$SBCL_LIBRARIAN_REF`, currently
-`quil-lang/sbcl-librarian` at `main`, which does not yet carry them. Point those at
-a fork or a merged upstream ref.
+**CI depends on a fork branch.** `build.yml` clones `$SBCL_LIBRARIAN_REPO` at
+`$SBCL_LIBRARIAN_REF`, currently `rigetti/sbcl-librarian` at
+`fix-secondary-system-bundles`. Move it back to `quil-lang/sbcl-librarian` once the
+three fixes are upstream.
 
 **CI's SBCL bump is unverified.** Both jobs now build `sbcl-$SBCL_VERSION` (2.6.7)
 with `--with-sb-linkable-runtime`, replacing the 2.2.4 build that failed in

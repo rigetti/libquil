@@ -40,7 +40,7 @@ jobs:
 
       - name: Archive linux artifacts
         run: |
-          cd artifacts/linux-amd64 && zip ../linux-amd64.zip libquil/libsbcl.so libquil/libquil.so libquil/libquil.core libquil/libquil.h
+          cd artifacts/linux-amd64 && zip ../linux-amd64.zip libquil/libsbcl.so libquil/libsbcl_librarian.so libquil/libquil.so libquil/libquil.core libquil/libquil.h libquil/sbcl_librarian.h libquil/sbcl_librarian_err.h
 
       - name: Download macos arm64 artifacts
         uses: actions/download-artifact@v4
@@ -50,7 +50,7 @@ jobs:
 
       - name: Archive macos arm64 artifacts
         run: |
-          cd artifacts/macos-arm64 && zip ../macos-arm64.zip libquil/libsbcl.so libquil/libquil.dylib libquil/libquil.core libquil/libquil.h
+          cd artifacts/macos-arm64 && zip ../macos-arm64.zip libquil/libsbcl.so libquil/libsbcl_librarian.dylib libquil/libquil.dylib libquil/libquil.core libquil/libquil.h libquil/sbcl_librarian.h libquil/sbcl_librarian_err.h
 
       - name: List artifacts
         run: |

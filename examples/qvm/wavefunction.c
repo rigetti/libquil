@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "error.h"
+#include "sbcl_librarian.h"
 #include "libquil.h"
 
 void die(char *msg) {
@@ -12,11 +13,9 @@ void die(char *msg) {
 }
 
 int main(int argc, char **argv) {
-  init("../../libquil.core");
-
   quil_program program;
 
-  if (quilc_parse_quil("X 0; I 1", &program) != LIBQUIL_ERROR_SUCCESS) {
+  if (quilc_parse_quil("X 0; I 1", &program) != LISP_ERR_SUCCESS) {
     LIBQUIL_ERROR("failed to parse quil");
     exit(1);
   }
@@ -25,7 +24,7 @@ int main(int argc, char **argv) {
   double *wavefunction;
   int seed = 0;
   if (qvm_wavefunction(program, &seed, &wavefunction, &wavefunction_len) !=
-      LIBQUIL_ERROR_SUCCESS) {
+      LISP_ERR_SUCCESS) {
     LIBQUIL_ERROR("failed to call qvm_wavefunction");
     exit(1);
   }

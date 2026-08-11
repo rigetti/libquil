@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "error.h"
+#include "sbcl_librarian.h"
 #include "libquil.h"
 
 void die(char *msg) {
@@ -26,20 +27,20 @@ void multishot_with_explicit_ro_indices() {
           "ro[1]; MEASURE %d ro[2]",
           q0, q0 + 1, q0 + 2, q0, q0 + 1, q0 + 2);
 
-  if (quilc_parse_quil(source, &program) != LIBQUIL_ERROR_SUCCESS) {
+  if (quilc_parse_quil(source, &program) != LISP_ERR_SUCCESS) {
     LIBQUIL_ERROR("failed to parse quil");
     exit(1);
   }
 
   qvm_multishot_addresses addresses;
-  if (qvm_multishot_addresses_new(&addresses) != LIBQUIL_ERROR_SUCCESS) {
+  if (qvm_multishot_addresses_new(&addresses) != LISP_ERR_SUCCESS) {
     LIBQUIL_ERROR("failed to create addresses");
     exit(1);
   }
 
   int indices[3] = {0, 1, 2};
   if (qvm_multishot_addresses_set(addresses, "ro", indices, 3) !=
-      LIBQUIL_ERROR_SUCCESS) {
+      LISP_ERR_SUCCESS) {
     LIBQUIL_ERROR("failed to set address indices");
     exit(1);
   }
@@ -47,7 +48,7 @@ void multishot_with_explicit_ro_indices() {
   qvm_multishot_result qvm_res;
   int num_trials = 10;
   if (qvm_multishot(program, addresses, num_trials, NULL, NULL, NULL,
-                    &qvm_res) != LIBQUIL_ERROR_SUCCESS) {
+                    &qvm_res) != LISP_ERR_SUCCESS) {
     LIBQUIL_ERROR("failed to call qvm_multishot");
     exit(1);
   }
@@ -55,7 +56,7 @@ void multishot_with_explicit_ro_indices() {
   for (int i = 0; i < num_trials; i++) {
     char vals[3];
     if (qvm_multishot_result_get(qvm_res, "ro", i, &vals) !=
-        LIBQUIL_ERROR_SUCCESS) {
+        LISP_ERR_SUCCESS) {
       LIBQUIL_ERROR("failed to call qvm_multishot_result_get");
       exit(1);
     }
@@ -76,19 +77,19 @@ void multishot_with_implicit_ro_indices() {
           "ro[1]; MEASURE %d ro[2]",
           q0, q0 + 1, q0 + 2, q0, q0 + 1, q0 + 2);
 
-  if (quilc_parse_quil(source, &program) != LIBQUIL_ERROR_SUCCESS) {
+  if (quilc_parse_quil(source, &program) != LISP_ERR_SUCCESS) {
     LIBQUIL_ERROR("failed to parse quil");
     exit(1);
   }
 
   qvm_multishot_addresses addresses;
-  if (qvm_multishot_addresses_new(&addresses) != LIBQUIL_ERROR_SUCCESS) {
+  if (qvm_multishot_addresses_new(&addresses) != LISP_ERR_SUCCESS) {
     LIBQUIL_ERROR("failed to create addresses");
     exit(1);
   }
 
   if (qvm_multishot_addresses_set_all(addresses, "ro") !=
-      LIBQUIL_ERROR_SUCCESS) {
+      LISP_ERR_SUCCESS) {
     LIBQUIL_ERROR("failed to set address indices");
     exit(1);
   }
@@ -97,7 +98,7 @@ void multishot_with_implicit_ro_indices() {
   int num_trials = 10;
   double gate_noise[] = {0.0, 0.0, 0.0};
   if (qvm_multishot(program, addresses, num_trials, NULL, NULL, NULL,
-                    &qvm_res) != LIBQUIL_ERROR_SUCCESS) {
+                    &qvm_res) != LISP_ERR_SUCCESS) {
     LIBQUIL_ERROR("failed to call qvm_multishot");
     exit(1);
   }
@@ -107,7 +108,7 @@ void multishot_with_implicit_ro_indices() {
     char *vals;
 
     if (qvm_multishot_result_get_all(qvm_res, "ro", i, &vals, &len) !=
-        LIBQUIL_ERROR_SUCCESS) {
+        LISP_ERR_SUCCESS) {
       LIBQUIL_ERROR("failed to call qvm_multishot_result_get_all");
       exit(1);
     }
@@ -131,20 +132,20 @@ void multishot_with_noise() {
           "ro[1]; MEASURE %d ro[2]",
           q0, q0 + 1, q0 + 2, q0, q0 + 1, q0 + 2);
 
-  if (quilc_parse_quil(source, &program) != LIBQUIL_ERROR_SUCCESS) {
+  if (quilc_parse_quil(source, &program) != LISP_ERR_SUCCESS) {
     LIBQUIL_ERROR("failed to parse quil");
     exit(1);
   }
 
   qvm_multishot_addresses addresses;
-  if (qvm_multishot_addresses_new(&addresses) != LIBQUIL_ERROR_SUCCESS) {
+  if (qvm_multishot_addresses_new(&addresses) != LISP_ERR_SUCCESS) {
     LIBQUIL_ERROR("failed to create addresses");
     exit(1);
   }
 
   int indices[3] = {0, 1, 2};
   if (qvm_multishot_addresses_set(addresses, "ro", indices, 3) !=
-      LIBQUIL_ERROR_SUCCESS) {
+      LISP_ERR_SUCCESS) {
     LIBQUIL_ERROR("failed to set address indices");
     exit(1);
   }
@@ -155,7 +156,7 @@ void multishot_with_noise() {
   double measurement_noise[] = {0.1, 0.0, 0.0};
   if (qvm_multishot(program, addresses, num_trials, gate_noise,
                     measurement_noise, NULL,
-                    &qvm_res) != LIBQUIL_ERROR_SUCCESS) {
+                    &qvm_res) != LISP_ERR_SUCCESS) {
     LIBQUIL_ERROR("failed to call qvm_multishot");
     exit(1);
   }
@@ -163,7 +164,7 @@ void multishot_with_noise() {
   for (int i = 0; i < num_trials; i++) {
     char vals[3];
     if (qvm_multishot_result_get(qvm_res, "ro", i, &vals) !=
-        LIBQUIL_ERROR_SUCCESS) {
+        LISP_ERR_SUCCESS) {
       LIBQUIL_ERROR("failed to call qvm_multishot_result_get");
       exit(1);
     }
@@ -176,8 +177,6 @@ void multishot_with_noise() {
 }
 
 int main(int argc, char **argv) {
-  init("../../libquil.core");
-
   multishot_with_explicit_ro_indices();
   multishot_with_implicit_ro_indices();
   multishot_with_noise();

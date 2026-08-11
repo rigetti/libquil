@@ -63,26 +63,20 @@ If you would like to manually install the library (for example in the case where
 
 ## Building from source
 
-Building requires an SBCL that has a *linkable runtime* — a `libsbcl.a` or
-`libsbcl.so`/`libsbcl.dylib` that gets embedded into the library. Neither
-`make.sh` nor most package managers produce one (Homebrew's `sbcl` bottle, for
-instance, does not), so it has to be built from an SBCL source tree of the same
-version as the `sbcl` used for the rest of the build:
+Building requires an SBCL with a *linkable runtime* (`libsbcl.so`). Neither
+`make.sh` nor any package manager produces one — Homebrew's `sbcl` bottle, for
+instance, does not — so SBCL has to be built from source:
 
 ```bash
 sh make.sh --with-sb-linkable-runtime && sh make-shared-library.sh && sh install.sh
 ```
 
-`install.sh` places the runtime in SBCL's home directory, where the `Makefile`
-finds it automatically. To use one from elsewhere, pass it explicitly:
+`install.sh` places it in SBCL's home directory, where the `Makefile` finds it
+automatically. To use one from elsewhere, pass it explicitly:
 
 ```bash
-make LIBSBCL=/path/to/sbcl/src/runtime/libsbcl.a
+make LIBSBCL=/path/to/sbcl/src/runtime/libsbcl.so
 ```
-
-Note that on aarch64 macOS, SBCL only builds its runtime as the static
-`libsbcl.a`; there is no shared `libsbcl.dylib` on that platform. The `Makefile`
-handles either form.
 
 The Lisp dependencies (`quilc`, `qvm`, `magicl`, `sbcl-librarian`) are expected
 in your Quicklisp local-projects directory. Then:
@@ -90,6 +84,24 @@ in your Quicklisp local-projects directory. Then:
 ```bash
 make
 ```
+
+This produces the library and the runtime it needs:
+
+```
+libquil.dylib                     the C bindings
+libquil.h                         its header
+runtime/libsbcl_librarian.dylib   the SBCL runtime; brings up Lisp when loaded
+runtime/libquil.core              the Lisp image
+runtime/libsbcl.so                the linkable SBCL runtime
+runtime/sbcl_librarian*.h         runtime headers
+```
+
+Everything under `runtime/` is installed alongside the library, and
+`libquil.core` must sit next to `libsbcl_librarian` — the runtime finds its core
+relative to its own location. There is no initialization call to make: loading
+the library starts Lisp.
+
+See [REARCHITECTURE.md](REARCHITECTURE.md) for how this fits together and why.
 
 ### Linear algebra backend on aarch64 macOS
 

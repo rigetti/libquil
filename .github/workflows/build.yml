@@ -4,6 +4,15 @@ on:
   pull_request:
   workflow_call:
 
+env:
+  # SBCL is built from source for its linkable runtime; see the build steps.
+  SBCL_VERSION: "2.6.7"
+  # libquil depends on three sbcl-librarian fixes (secondary-system FASL bundles,
+  # library prefix, configurable core name). They live on a branch of Rigetti's
+  # fork; move this back to quil-lang/sbcl-librarian once they are upstream.
+  SBCL_LIBRARIAN_REPO: "https://github.com/rigetti/sbcl-librarian.git"
+  SBCL_LIBRARIAN_REF: "fix-secondary-system-bundles"
+
 jobs:  
   build-linux:
     name: Build libquil.so
@@ -33,10 +42,14 @@ jobs:
         name: Install SBCL, libraries, and quicklisp
         run: |
           sudo apt update && sudo apt install -y sbcl build-essential
-          sudo git clone --single-branch --branch sbcl-2.2.4 https://git.code.sf.net/p/sbcl/sbcl /usr/src/sbcl
-          cd /usr/src/sbcl && sudo sh make.sh && sudo sh make-shared-library.sh
+          # Build SBCL from source: a linkable runtime (libsbcl.so) is required and
+          # neither make.sh nor any package manager produces one. The version must be
+          # recent -- sbcl-librarian needs sb-sys:int-sap -- and cannot be much older
+          # than the host SBCL used to cross-compile it.
+          sudo git clone --single-branch --branch sbcl-$SBCL_VERSION https://git.code.sf.net/p/sbcl/sbcl /usr/src/sbcl
+          cd /usr/src/sbcl && sudo sh make.sh --with-sb-linkable-runtime && sudo sh make-shared-library.sh
           sudo apt remove -y sbcl
-          sudo sh install.sh 
+          sudo sh install.sh
           sudo cp src/runtime/libsbcl.so /usr/local/lib/libsbcl.so
 
           sudo apt install -y wget
@@ -53,7 +66,7 @@ jobs:
           git clone https://github.com/quil-lang/qvm.git $GITHUB_WORKSPACE/qvm && cd $GITHUB_WORKSPACE/qvm && git checkout 4617625cb6053b1adfd3f7aea9cd2be328b225f6
           git clone https://github.com/quil-lang/magicl.git $GITHUB_WORKSPACE/magicl
           git clone https://github.com/stylewarning/cl-permutation $GITHUB_WORKSPACE/cl-permutation
-          git clone https://github.com/quil-lang/sbcl-librarian.git $GITHUB_WORKSPACE/sbcl-librarian && cd $GITHUB_WORKSPACE/sbcl-librarian && git checkout 04f7e390c777084ac43b8df9e90593a041da2381
+          git clone $SBCL_LIBRARIAN_REPO $GITHUB_WORKSPACE/sbcl-librarian && cd $GITHUB_WORKSPACE/sbcl-librarian && git checkout $SBCL_LIBRARIAN_REF
 
       - name: Install quilc dependencies
         # libffi-dev pulls in whichever libffi runtime the image ships; naming
@@ -65,18 +78,20 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE/libquil
           ls
-          sbcl --noinform --non-interactive --eval '(ql:quickload :sbcl-librarian)'
-          sbcl --dynamic-space-size 8192 --noinform --non-interactive --eval '(ql:quickload :libquil)'
           make
 
       - name: Test
         run: |
-          cd $GITHUB_WORKSPACE/libquil/examples/qvm && LD_LIBRARY_PATH=../.. make test
-          cd $GITHUB_WORKSPACE/libquil/examples/quilc && LD_LIBRARY_PATH=../.. make test
+          cd $GITHUB_WORKSPACE/libquil/examples/qvm && LD_LIBRARY_PATH=../..:../../runtime make test
+          cd $GITHUB_WORKSPACE/libquil/examples/quilc && LD_LIBRARY_PATH=../..:../../runtime make test
 
       - name: Package files
         run: |
-          mkdir -p $GITHUB_WORKSPACE/artifacts/libquil && cp $GITHUB_WORKSPACE/libquil/libquil.h $GITHUB_WORKSPACE/libquil/libquil.so $GITHUB_WORKSPACE/libquil/libquil.core /usr/local/lib/libsbcl.so $GITHUB_WORKSPACE/artifacts/libquil
+          mkdir -p $GITHUB_WORKSPACE/artifacts/libquil
+          cp $GITHUB_WORKSPACE/libquil/libquil.h $GITHUB_WORKSPACE/libquil/libquil.so $GITHUB_WORKSPACE/artifacts/libquil
+          # The runtime directory holds libsbcl_librarian, the core it loads,
+          # libsbcl itself and the runtime headers; they must ship together.
+          cp $GITHUB_WORKSPACE/libquil/runtime/* $GITHUB_WORKSPACE/artifacts/libquil
 
       - name: Store artifact
         uses: actions/upload-artifact@v4
@@ -115,8 +130,12 @@ jobs:
         name: Install SBCL, libraries, and quicklisp
         run: |
           brew install sbcl git
-          git clone --branch sbcl-2.2.4 https://git.code.sf.net/p/sbcl/sbcl /tmp/sbcl
-          cd /tmp/sbcl && sudo sh make.sh --without-compact-instance-header --without-immobile-space --without-immobile-code && sudo sh make-shared-library.sh
+          # See the Linux job: a linkable runtime has to be built from source. Homebrew's
+          # sbcl is only the cross-compilation host, and its version must be close to the
+          # one being built -- building the old sbcl-2.2.4 with a current host fails in
+          # make-host-1 with "undefined variable: SB-VM::END".
+          git clone --branch sbcl-$SBCL_VERSION https://git.code.sf.net/p/sbcl/sbcl /tmp/sbcl
+          cd /tmp/sbcl && sudo sh make.sh --with-sb-linkable-runtime && sudo sh make-shared-library.sh
           brew remove -f sbcl
           sudo sh install.sh
           sudo cp src/runtime/libsbcl.so /usr/local/lib/libsbcl.so
@@ -135,7 +154,7 @@ jobs:
           git clone https://github.com/quil-lang/qvm.git $GITHUB_WORKSPACE/qvm && cd $GITHUB_WORKSPACE/qvm && git checkout 4617625cb6053b1adfd3f7aea9cd2be328b225f6
           git clone https://github.com/quil-lang/magicl.git $GITHUB_WORKSPACE/magicl
           git clone https://github.com/stylewarning/cl-permutation $GITHUB_WORKSPACE/cl-permutation
-          git clone https://github.com/quil-lang/sbcl-librarian.git $GITHUB_WORKSPACE/sbcl-librarian && cd $GITHUB_WORKSPACE/sbcl-librarian && git checkout 04f7e390c777084ac43b8df9e90593a041da2381
+          git clone $SBCL_LIBRARIAN_REPO $GITHUB_WORKSPACE/sbcl-librarian && cd $GITHUB_WORKSPACE/sbcl-librarian && git checkout $SBCL_LIBRARIAN_REF
 
       - name: Install quilc dependencies
         run: brew install lapack openblas libffi gfortran
@@ -144,8 +163,6 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE/libquil
           ls
-          sbcl --noinform --non-interactive --eval '(ql:quickload :sbcl-librarian)'
-          sbcl --dynamic-space-size 8192 --noinform --non-interactive --eval '(ql:quickload :libquil)'
           make
 
       - name: ls
@@ -154,12 +171,16 @@ jobs:
 
       - name: Test
         run: |
-          cd $GITHUB_WORKSPACE/libquil/examples/qvm && DYLD_LIBRARY_PATH=$GITHUB_WORKSPACE/libquil make test
-          cd $GITHUB_WORKSPACE/libquil/examples/quilc && DYLD_LIBRARY_PATH=$GITHUB_WORKSPACE/libquil make test
+          cd $GITHUB_WORKSPACE/libquil/examples/qvm && DYLD_LIBRARY_PATH=$GITHUB_WORKSPACE/libquil:$GITHUB_WORKSPACE/libquil/runtime make test
+          cd $GITHUB_WORKSPACE/libquil/examples/quilc && DYLD_LIBRARY_PATH=$GITHUB_WORKSPACE/libquil:$GITHUB_WORKSPACE/libquil/runtime make test
 
       - name: Package files
         run: |
-          mkdir -p $GITHUB_WORKSPACE/artifacts/libquil && cp $GITHUB_WORKSPACE/libquil/libquil.h $GITHUB_WORKSPACE/libquil/libquil.dylib $GITHUB_WORKSPACE/libquil/libquil.core /usr/local/lib/libsbcl.so $GITHUB_WORKSPACE/artifacts/libquil
+          mkdir -p $GITHUB_WORKSPACE/artifacts/libquil
+          cp $GITHUB_WORKSPACE/libquil/libquil.h $GITHUB_WORKSPACE/libquil/libquil.dylib $GITHUB_WORKSPACE/artifacts/libquil
+          # The runtime directory holds libsbcl_librarian, the core it loads,
+          # libsbcl itself and the runtime headers; they must ship together.
+          cp $GITHUB_WORKSPACE/libquil/runtime/* $GITHUB_WORKSPACE/artifacts/libquil
 
       - name: Store artifact
         uses: actions/upload-artifact@v4

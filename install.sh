@@ -53,20 +53,23 @@ pushd "${LIBQUIL_TEMP_DIR}" || exit
 curl -L "${LIBQUIL_RELEASE_URL}" -o "${LIBQUIL_RELEASE_FILE}"
 unzip "${LIBQUIL_RELEASE_FILE}"
 
+# libquil.core must land in the same directory as libsbcl_librarian: the runtime
+# locates its core relative to its own path.
+sudo mkdir -p "${LIBQUIL_INCLUDE_PREFIX}"
+sudo cp libquil/libquil.h libquil/sbcl_librarian.h libquil/sbcl_librarian_err.h "${LIBQUIL_INCLUDE_PREFIX}"
+sudo cp libquil/libquil.core libquil/libsbcl.so "${LIBQUIL_LIB_PREFIX}"
+
 if [[ -n "${IS_LINUX-}" ]]
 then
-  sudo cp libquil/libquil.so libquil/libquil.core libquil/libsbcl.so "${LIBQUIL_LIB_PREFIX}" 
-  sudo mkdir -p "${LIBQUIL_INCLUDE_PREFIX}"
-  sudo cp libquil/libquil.h "${LIBQUIL_INCLUDE_PREFIX}"
+  sudo cp libquil/libquil.so libquil/libsbcl_librarian.so "${LIBQUIL_LIB_PREFIX}"
   sudo ldconfig
 else
-  sudo cp libquil/libquil.dylib libquil/libquil.core libquil/libsbcl.so "${LIBQUIL_LIB_PREFIX}" 
-  sudo mkdir -p "${LIBQUIL_INCLUDE_PREFIX}"
-  sudo cp libquil/libquil.h "${LIBQUIL_INCLUDE_PREFIX}"
+  sudo cp libquil/libquil.dylib libquil/libsbcl_librarian.dylib "${LIBQUIL_LIB_PREFIX}"
   # This disables the "cannot open libquil.dylib from untrusted developer" dialog.
   # A better solution for this would be to properly codesign the files, but that
   # is a non-trivial amount of work.
-  sudo xattr -r -d com.apple.quarantine /usr/local/lib/libquil.dylib
-  sudo xattr -r -d com.apple.quarantine /usr/local/lib/libquil.core
-  sudo xattr -r -d com.apple.quarantine /usr/local/lib/libsbcl.so
+  sudo xattr -r -d com.apple.quarantine "${LIBQUIL_LIB_PREFIX}/libquil.dylib"
+  sudo xattr -r -d com.apple.quarantine "${LIBQUIL_LIB_PREFIX}/libsbcl_librarian.dylib"
+  sudo xattr -r -d com.apple.quarantine "${LIBQUIL_LIB_PREFIX}/libquil.core"
+  sudo xattr -r -d com.apple.quarantine "${LIBQUIL_LIB_PREFIX}/libsbcl.so"
 fi
