@@ -9,8 +9,11 @@
 We provide pre-built binaries for the following systems
 
 - Linux x64 (tested specifically on Ubuntu)
-- macOS x64
-- macOS aarch64
+- macOS aarch64 (Apple Silicon)
+
+Intel macOS binaries are no longer published. Other platforms, including Intel
+macOS, can be built from source — see [Building from
+source](#building-from-source).
 
 ## Requirements
 
@@ -23,7 +26,7 @@ These libraries are required by `libquil`:
 On systems which use `apt` to install packages (e.g. Ubuntu), these libraries can be installed with the command
 
 ```
-sudo apt install libblas-dev libffi-dev libffi7 liblapack-dev libz-dev
+sudo apt install libblas-dev libffi-dev liblapack-dev libz-dev
 ```
 
 On systems which use `brew` to install packages (e.g macOS), these libraries can be installed with the command

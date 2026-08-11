@@ -7,10 +7,6 @@ err() {
   exit 1
 }
 
-if [[ "$(uname -p)" =~ "arm" ]]; then
-  err "Unsupported CPU architecture: $(uname -p)."
-fi
-
 if [[ -n "${1-}" ]]
 then
   LIBQUIL_URL_PREFIX="https://github.com/rigetti/libquil/releases/download/v${1}"
@@ -19,13 +15,31 @@ else
 fi
 
 OS="$(uname)"
+ARCH="$(uname -m)"
 if [[ "${OS}" == "Linux" ]]
 then
   IS_LINUX=1
-  LIBQUIL_RELEASE_FILE="linux-amd64.zip"
+  case "${ARCH}" in
+    x86_64 | amd64)
+      LIBQUIL_RELEASE_FILE="linux-amd64.zip"
+      ;;
+    *)
+      err "Unsupported CPU architecture for Linux: ${ARCH}. Only x86_64 is supported." \
+          "You can build libquil from source; see https://github.com/rigetti/libquil#building-from-source"
+      ;;
+  esac
 elif [[ "${OS}" == "Darwin" ]]
 then
-  LIBQUIL_RELEASE_FILE="macos.zip"
+  case "${ARCH}" in
+    arm64 | aarch64)
+      LIBQUIL_RELEASE_FILE="macos-arm64.zip"
+      ;;
+    *)
+      err "Unsupported CPU architecture for macOS: ${ARCH}. Only Apple Silicon (arm64) is supported." \
+          "Intel macOS builds are no longer published. You can build libquil from source; see" \
+          "https://github.com/rigetti/libquil#building-from-source"
+      ;;
+  esac
 else
   err "Unsupported operating system. Supported operating systems are Linux and macOS."
 fi
