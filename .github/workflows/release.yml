@@ -25,12 +25,12 @@ jobs:
           git config --global user.name "${{ github.triggering_actor }}"
           git config --global user.email "${{ github.triggering_actor }}@users.noreply.github.com"
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Download linux artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: linux-amd64
           path: artifacts/
@@ -40,7 +40,7 @@ jobs:
           cd artifacts && zip linux-amd64.zip libquil/libsbcl.so libquil/libquil.so libquil/libquil.core libquil/libquil.h
 
       - name: Download macos artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: macos
           path: artifacts/

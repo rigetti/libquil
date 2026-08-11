@@ -13,13 +13,13 @@ jobs:
       - name: root suid tar
         run: sudo chown root /bin/tar && sudo chmod u+s /bin/tar
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           path: "libquil"
 
       - name: Cache SBCL
         id: cache-sbcl
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             /usr/local/lib/libsbcl.so
@@ -76,7 +76,7 @@ jobs:
           mkdir -p $GITHUB_WORKSPACE/artifacts/libquil && cp $GITHUB_WORKSPACE/libquil/libquil.h $GITHUB_WORKSPACE/libquil/libquil.so $GITHUB_WORKSPACE/libquil/libquil.core /usr/local/lib/libsbcl.so $GITHUB_WORKSPACE/artifacts/libquil
 
       - name: Store artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: linux-amd64
           path: ${{ github.workspace }}/artifacts/*
@@ -87,13 +87,13 @@ jobs:
 
     steps:
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           path: "libquil"
 
       - name: Cache SBCL
         id: cache-sbcl-macos
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             /usr/local/lib/libsbcl.so
@@ -101,7 +101,7 @@ jobs:
             /usr/local/bin/sbcl
             ~/quicklisp
             ~/.sbclrc
-          key: ${{ runner.os }}-build-${{ hashFiles('**/macos-versions' )}}
+          key: ${{ runner.os }}-${{ runner.arch }}-build-${{ hashFiles('**/macos-versions' )}}
 
       - uses: Homebrew/actions/setup-homebrew@master
         name: Setup homebrew
@@ -157,7 +157,7 @@ jobs:
           mkdir -p $GITHUB_WORKSPACE/artifacts/libquil && cp $GITHUB_WORKSPACE/libquil/libquil.h $GITHUB_WORKSPACE/libquil/libquil.dylib $GITHUB_WORKSPACE/libquil/libquil.core /usr/local/lib/libsbcl.so $GITHUB_WORKSPACE/artifacts/libquil
 
       - name: Store artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: macos
           path: ${{ github.workspace }}/artifacts/*
@@ -168,13 +168,13 @@ jobs:
 
     steps:
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           path: "libquil"
 
       - name: Cache SBCL
         id: cache-sbcl-macos
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             /usr/local/lib/libsbcl.so
@@ -182,7 +182,7 @@ jobs:
             /usr/local/bin/sbcl
             ~/quicklisp
             ~/.sbclrc
-          key: ${{ runner.os }}-build-${{ hashFiles('**/macos-versions' )}}
+          key: ${{ runner.os }}-${{ runner.arch }}-build-${{ hashFiles('**/macos-versions' )}}
 
       - uses: Homebrew/actions/setup-homebrew@master
         name: Setup homebrew
@@ -238,8 +238,10 @@ jobs:
           mkdir -p $GITHUB_WORKSPACE/artifacts/libquil && cp $GITHUB_WORKSPACE/libquil/libquil.h $GITHUB_WORKSPACE/libquil/libquil.dylib $GITHUB_WORKSPACE/libquil/libquil.core /usr/local/lib/libsbcl.so $GITHUB_WORKSPACE/artifacts/libquil
 
       - name: Store artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: macos
+          # Must differ from the x64 macOS job artifact name: upload-artifact
+          # v4 rejects two artifacts sharing a name within a single run.
+          name: macos-arm64
           path: ${{ github.workspace }}/artifacts/*
 
