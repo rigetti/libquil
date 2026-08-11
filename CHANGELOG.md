@@ -1,3 +1,15 @@
+## 0.3.2 (2023-12-14)
+
+### Fixes
+
+#### compress qubits in multishot (#55)
+
+## 0.3.1 (2023-12-11)
+
+### Fixes
+
+#### mask float traps (#53)
+
 ## 0.3.0 (2023-11-16)
 
 ### Breaking Changes

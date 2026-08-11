@@ -7,6 +7,10 @@ err() {
   exit 1
 }
 
+if [[ "$(uname -p)" =~ "arm" ]]; then
+  err "Unsupported CPU architecture: $(uname -p)."
+fi
+
 if [[ -n "${1-}" ]]
 then
   LIBQUIL_URL_PREFIX="https://github.com/rigetti/libquil/releases/download/v${1}"
