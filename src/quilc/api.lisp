@@ -135,7 +135,7 @@
    (("parse_quil" cl-quil.frontend:safely-parse-quil) quil-program ((source :string)))
    (("program_memory_type" parsed-program-get-memory-region-type) :void ((program quil-program) (region-name :string) (region-type-ptr :pointer)))
    (("print_program" cl-quil.frontend:print-parsed-program) :void ((program quil-program)))
-   (("compile_quil" cl-quil:compiler-hook) quil-program ((program quil-program) (chip-spec chip-specification)))
+   (("compile_quil" compile-quil) quil-program ((program quil-program) (chip-spec chip-specification)))
    (("compilation_metadata_len" compilation-metadata-len) :int ((metadata compilation-metadata)))
    (("compilation_metadata_get_final_rewiring" compilation-metadata-get-final-rewiring)
     :void

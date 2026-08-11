@@ -11,7 +11,9 @@ We provide pre-built binaries for the following systems
 - Linux x64 (tested specifically on Ubuntu)
 - macOS x64
 
-Note that ARM is not yet supported on any of the above.
+Note that we do not publish pre-built binaries for ARM. ARM machines, including
+Apple Silicon, are supported when building from source — see [Building from
+source](#building-from-source).
 
 ## Requirements
 
@@ -58,6 +60,43 @@ replacing `<version-identifier>` with the desired version, e.g. `0.3.0`.
 ## Manual installation
 
 If you would like to manually install the library (for example in the case where you want to install the library to a non-standard location), find the appropriate version and operating system from the [releases page](https://github.com/rigetti/libquil/releases). Within the `.zip` archive you will find the library and header files that are required to use the library. Move these into your file system.
+
+## Building from source
+
+Building requires an SBCL that has a *linkable runtime* — a `libsbcl.a` or
+`libsbcl.so`/`libsbcl.dylib` that gets embedded into the library. Neither
+`make.sh` nor most package managers produce one (Homebrew's `sbcl` bottle, for
+instance, does not), so it has to be built from an SBCL source tree of the same
+version as the `sbcl` used for the rest of the build:
+
+```bash
+sh make.sh --with-sb-linkable-runtime && sh make-shared-library.sh && sh install.sh
+```
+
+`install.sh` places the runtime in SBCL's home directory, where the `Makefile`
+finds it automatically. To use one from elsewhere, pass it explicitly:
+
+```bash
+make LIBSBCL=/path/to/sbcl/src/runtime/libsbcl.a
+```
+
+Note that on arm64 macOS, SBCL only builds its runtime as the static
+`libsbcl.a`; there is no shared `libsbcl.dylib` on that platform. The `Makefile`
+handles either form.
+
+The Lisp dependencies (`quilc`, `qvm`, `magicl`, `sbcl-librarian`) are expected
+in your Quicklisp local-projects directory. Then:
+
+```bash
+make
+```
+
+### Linear algebra backend on arm64 macOS
+
+Homebrew's reference `lapack` computes incorrect eigenvectors on arm64, which
+surfaces as `Could not find diagonalizer for matrix ... after 16 attempts`
+during compilation. Install OpenBLAS (`brew install openblas`) and ensure
+`magicl` loads it in preference to `lapack`.
 
 # C API Reference
 

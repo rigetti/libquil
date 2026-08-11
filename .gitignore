@@ -2,3 +2,5 @@ libquil.c
 libquil.core
 libquil.h
 libquil.so
+libquil.dylib
+libquil.py
