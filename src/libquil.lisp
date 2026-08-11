@@ -34,25 +34,31 @@
 
 (sbcl-librarian:define-handle-type qvm-multishot-addresses "qvm_multishot_addresses")
 
-(defvar *last-error* "")
-
-(defun libquil-last-error ()
-  "Returns the most recent error raised by quilc. The error is then cleared."
-  (let ((last-error *last-error*))
-    (setf *last-error* "") 
-    last-error))
-
-(sbcl-librarian:define-enum-type error-type "libquil_error_t"
-  ("LIBQUIL_ERROR_SUCCESS" 0)
-  ("LIBQUIL_ERROR_FAIL" 1))
-
-(sbcl-librarian:define-error-map error-map error-type 0
-  ((t (lambda (condition)
-        (setf *last-error* (format nil "~a" condition))
-        (return-from error-map 1)))))
-
-(sbcl-librarian:define-api common (:error-map error-map
-                                   :function-prefix "libquil_") 
-  (:type error-type)
-  (:function
-   (("error" libquil-last-error) :string ())))
+;;; Error reporting comes from SBCL-LIBRARIAN's built-in ERRORS api, which
+;;; provides the `lisp_err_t' type, `get_error_message', and `enable_backtrace'.
+;;; DEFINE-API always uses SBCL-LIBRARIAN's DEFAULT-ERROR-MAP, which records the
+;;; condition into that message.
+;;;
+;;; We redefine that map for libquil's own APIs. The stock one classifies any
+;;; plain CL:ERROR as an internal bug (LISP_ERR_BUG), attaching a backtrace and an
+;;; "Internal lisp bug:" prefix. Almost everything libquil signals is a user error
+;;; -- malformed Quil, an unknown memory region, an unsupported instruction -- so
+;;; the stock mapping would report ordinary bad input as a libquil bug. Mapping
+;;; CL:ERROR to LISP_ERR_FAILURE keeps the message clean and matches how libquil
+;;; behaved before it adopted the built-in error handling.
+;;;
+;;; WRAP-ERROR-HANDLING is consulted when a callable is compiled, so this affects
+;;; only the callables compiled after it -- libquil's own. The APIs already
+;;; compiled into libsbcl_librarian keep the stock behaviour.
+(sbcl-librarian:define-error-map sbcl-librarian::default-error-map
+    sbcl-librarian::error-type (:no-error 0 :fatal-error 3)
+  ;; Handle T, not CL:ERROR. cl-quil signals conditions that are not subtypes of
+  ;; ERROR -- INVALID-INSTRUCTION-CONDITION, raised for an unrecognized
+  ;; instruction, has no supertype at all -- so a handler bound to CL:ERROR lets
+  ;; them escape to the debugger and hang the calling process. libquil's original
+  ;; error map bound T for this reason. Warnings are passed over first so they do
+  ;; not abort the call.
+  ((cl:warning #'cl:continue)
+   (t (lambda (condition)
+        (setf sbcl-librarian::*error-message* (format nil "~a" condition))
+        (return-from sbcl-librarian::default-error-map 1)))))

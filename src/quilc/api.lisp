@@ -123,8 +123,7 @@
   ("LIBQUIL_TYPE_INTEGER" 2)
   ("LIBQUIL_TYPE_REAL" 3))
 
-(sbcl-librarian:define-api quilc (:error-map error-map
-                                  :function-prefix "quilc_")
+(sbcl-librarian:define-api quilc (:function-prefix "quilc_")
   (:literal "/* Quilc types */")
   (:type program-memory-type quil-program chip-specification quilc-version-info compilation-metadata)
   (:literal "/* Quilc functions */")
@@ -213,10 +212,14 @@
     (let ((program-handle (sbcl-librarian::dereference-handle program))
           (chip-spec-handle (sbcl-librarian::dereference-handle chip-spec))
           (metadata-ptr metata-ptr))
+      ;; Mirrors what SBCL-LIBRARIAN's DEFAULT-ERROR-MAP does for generated
+      ;; callables: record the condition where GET-ERROR-MESSAGE can find it and
+      ;; return the failure code.
       (block error-map
         (handler-bind ((t
                          (lambda (condition)
-                           (setf *last-error* (format nil "~a" condition))
+                           (setf sbcl-librarian::*error-message*
+                                 (format nil "~a" condition))
                            (return-from error-map 1))))
           (progn
             (setf (sb-alien:deref sbcl-librarian::result)

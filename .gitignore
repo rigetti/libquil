@@ -4,3 +4,5 @@ libquil.h
 libquil.so
 libquil.dylib
 libquil.py
+build/
+runtime/

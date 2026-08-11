@@ -1,75 +1,94 @@
-.PHONY: all clean
+.PHONY: all clean runtime
 
 OS := $(shell uname -s)
 
 SBCL ?= sbcl
+CC ?= cc
 
 ifeq ($(OS), Darwin)
-	LIBQUIL_TARGET = libquil.dylib
-	CCFLAGS = -dynamiclib
+	SHARED_SUFFIX = .dylib
+	SHARED_FLAGS = -dynamiclib
 else
-	LIBQUIL_TARGET = libquil.so
-	CCFLAGS = -shared
+	SHARED_SUFFIX = .so
+	SHARED_FLAGS = -shared
 endif
 
-# The library needs to embed the SBCL runtime. `make.sh` does not build a
-# linkable runtime, so it has to be produced separately by running
-# `make-shared-library.sh` in the SBCL source tree, and neither `install.sh` nor
-# most package managers install the result. Look in the usual places for it, and
-# let the user point at it directly with e.g. `make LIBSBCL=/path/to/libsbcl.a`.
+LIBQUIL_TARGET = libquil$(SHARED_SUFFIX)
+
+# libquil is built against modern sbcl-librarian (see REARCHITECTURE.md), which
+# splits the work in two:
 #
-# Which file to expect depends on the platform: on arm64 macOS the SBCL runtime
-# is only built as a static archive (see SBCL's Config.arm64-darwin), so a
-# shared libsbcl does not exist there at all.
+#   runtime/libsbcl_librarian$(SHARED_SUFFIX)  the SBCL runtime; a constructor
+#                                              initializes Lisp when it is loaded
+#   runtime/libquil.core                       the Lisp image, holding libquil and
+#                                              its dependencies
+#   libquil$(SHARED_SUFFIX)                    the generated C bindings
+#
+# Both halves are built here, so `make` alone still produces a usable artifact.
+RUNTIME_DIR := runtime
+RUNTIME_LIB := $(RUNTIME_DIR)/libsbcl_librarian$(SHARED_SUFFIX)
+CORE := $(RUNTIME_DIR)/libquil.core
+
+SBCL_LIBRARIAN_DIR := $(shell $(SBCL) --noinform --non-interactive \
+    --eval '(require :asdf)' \
+    --eval '(princ (namestring (asdf:system-source-directory "sbcl-librarian")))' 2>/dev/null)
+
+# The linkable SBCL runtime. `make.sh` does not build one and package managers do
+# not ship it, so it comes from an SBCL source tree built with
+# `make-shared-library.sh`; `install.sh` puts it in SBCL's home directory. Note
+# that SBCL names it libsbcl.so on every platform, including macOS.
 SBCL_CORE_DIR := $(dir $(shell $(SBCL) --noinform --no-sysinit --no-userinit --non-interactive \
                                  --eval '(princ (namestring sb-ext:*core-pathname*))' 2>/dev/null))
-LIBSBCL_SEARCH_DIRS := $(SBCL_HOME) $(SBCL_CORE_DIR) /usr/local/lib /usr/lib /opt/homebrew/lib
-LIBSBCL_CANDIDATES := \
-	$(foreach dir,$(LIBSBCL_SEARCH_DIRS),\
-		$(dir)/libsbcl.a $(dir)/libsbcl.dylib $(dir)/libsbcl.so)
+LIBSBCL_SEARCH_DIRS := $(SBCL_HOME) $(SBCL_CORE_DIR) $(SBCL_CORE_DIR).. \
+                       /usr/local/lib /usr/lib /opt/homebrew/lib
+LIBSBCL ?= $(firstword $(wildcard \
+    $(foreach dir,$(LIBSBCL_SEARCH_DIRS),$(dir)/libsbcl.so $(dir)/libsbcl.dylib)))
 
-LIBSBCL ?= $(firstword $(wildcard $(LIBSBCL_CANDIDATES)))
-
-# A static runtime must be linked whole: the entry points the generated
-# libquil.c calls are reached only through the core, so without this the linker
-# drops most of the archive. Its own dependencies have to be named explicitly
-# too, since an archive records none. A shared runtime carries both properties
-# already and just needs to be linked normally.
-SBCL_STATIC_DEPS ?= $(shell pkg-config --libs libzstd 2>/dev/null || echo -lzstd) -lm -ldl -lpthread
-
-ifeq ($(suffix $(LIBSBCL)), .a)
-ifeq ($(OS), Darwin)
-	LIBSBCL_LDFLAGS = -Wl,-force_load,$(LIBSBCL) $(SBCL_STATIC_DEPS)
-else
-	LIBSBCL_LDFLAGS = -Wl,--whole-archive $(LIBSBCL) -Wl,--no-whole-archive $(SBCL_STATIC_DEPS)
-endif
-else ifeq ($(OS), Darwin)
-# Link by path rather than -lsbcl: make-shared-library.sh names its output
-# libsbcl.so even on macOS, and the -l flag only ever looks for libsbcl.dylib or
-# libsbcl.a.
-	LIBSBCL_LDFLAGS = $(LIBSBCL)
-else
-	LIBSBCL_LDFLAGS = -L$(dir $(LIBSBCL)) -lsbcl
-endif
+# libsbcl needs zstd for core compression; pkg-config knows where it is on systems
+# that install it outside the default search path (Homebrew, in particular).
+ZSTD_LIBS ?= $(shell pkg-config --libs libzstd 2>/dev/null || echo -lzstd)
 
 all: $(LIBQUIL_TARGET)
 
-libquil.core libquil.c libquil.h libquil.py: src/libquil.lisp src/qvm/*.lisp src/quilc/*.lisp
-	$(SBCL) --dynamic-space-size 8192 --load "src/build-image.lisp"
+runtime: $(RUNTIME_LIB)
 
-$(LIBQUIL_TARGET): libquil.core libquil.c
+# One image produces everything Lisp-side: libquil's bindings, the runtime's
+# bindings, and the core that backs both.
+$(CORE) libquil.c libquil.h $(RUNTIME_DIR)/sbcl_librarian.c: src/libquil.lisp src/qvm/*.lisp src/quilc/*.lisp src/build-image.lisp
+	mkdir -p $(RUNTIME_DIR)
+	$(SBCL) --dynamic-space-size 8192 --non-interactive --load "src/build-image.lisp"
+	# The core is named after the aggregate library that defines its exports
+	# (libquil-core); publish it beside the runtime under the name the runtime
+	# was compiled to look for.
+	mv libquil_core.core $(CORE)
+
+# The runtime is told to load libquil.core rather than the stock
+# sbcl_librarian.core, so that libquil's image is what comes up.
+$(RUNTIME_LIB): $(RUNTIME_DIR)/sbcl_librarian.c
 ifeq ($(LIBSBCL),)
-	@echo "error: no linkable SBCL runtime found."                                   >&2
-	@echo "Searched for libsbcl.a, libsbcl.dylib and libsbcl.so in:"                 >&2
+	@echo "error: no linkable SBCL runtime (libsbcl.so) found."                        >&2
+	@echo "Searched:"                                                                  >&2
 	@$(foreach dir,$(LIBSBCL_SEARCH_DIRS),echo "    $(dir)" >&2;)
-	@echo ""                                                                         >&2
-	@echo "Build one from an SBCL source tree of the SAME version as $(SBCL):"       >&2
-	@echo "    sh make.sh --with-sb-linkable-runtime && sh make-shared-library.sh"   >&2
-	@echo "then point make at the result, e.g.:"                                     >&2
-	@echo "    make LIBSBCL=/path/to/sbcl/src/runtime/libsbcl.a"                     >&2
+	@echo "Build one from an SBCL source tree of the same version as $(SBCL):"         >&2
+	@echo "    sh make.sh --with-sb-linkable-runtime && sh make-shared-library.sh"     >&2
+	@echo "then re-run make, or pass LIBSBCL=/path/to/libsbcl.so"                      >&2
 	@exit 1
 endif
-	$(CC) $(CCFLAGS) -o $@ libquil.c $(LIBSBCL_LDFLAGS)
+	mkdir -p $(RUNTIME_DIR)
+	cp $(LIBSBCL) $(RUNTIME_DIR)/libsbcl.so
+	cp "$(SBCL_LIBRARIAN_DIR)lib/sbcl_librarian_err.h" $(RUNTIME_DIR)/
+	cd $(RUNTIME_DIR) && $(CC) $(SHARED_FLAGS) -o libsbcl_librarian$(SHARED_SUFFIX) \
+	    sbcl_librarian.c \
+	    "$(SBCL_LIBRARIAN_DIR)lib/entry_point.c" \
+	    -DLIBSBCL_LIBRARIAN_API_BUILD \
+	    -DSBCL_LIBRARIAN_CORE_NAME='"libquil.core"' \
+	    -I. -I"$(SBCL_LIBRARIAN_DIR)lib" -L. -lsbcl $(ZSTD_LIBS)
+
+$(LIBQUIL_TARGET): libquil.c $(CORE) $(RUNTIME_LIB)
+	$(CC) $(SHARED_FLAGS) -o $@ libquil.c \
+	    -I. -I$(RUNTIME_DIR) -I"$(SBCL_LIBRARIAN_DIR)lib" \
+	    -L$(RUNTIME_DIR) -lsbcl_librarian
 
 clean:
-	rm -f libquil.so libquil.c libquil.h libquil.core libquil.py libquil.dylib example
+	rm -rf $(RUNTIME_DIR) build
+	rm -f libquil.so libquil.dylib libquil.h libquil.c libquil.core libquil.py example

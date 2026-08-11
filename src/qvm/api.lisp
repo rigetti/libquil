@@ -151,7 +151,7 @@
             (setf (cffi:mem-aref (sb-alien:alien-sap results-ptr) :double i)
                   probability))))
 
-(sbcl-librarian:define-api qvm (:error-map error-map :function-prefix "qvm_")
+(sbcl-librarian:define-api qvm (:function-prefix "qvm_")
   (:literal "/* QVM types */")
   (:type qvm-multishot-addresses qvm-multishot-result qvm-version-info)
   (:literal "/* QVM functions */")
