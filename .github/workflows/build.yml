@@ -49,14 +49,17 @@ jobs:
 
       - name: Pull Lisp dependencies
         run: |
-          git clone https://github.com/notmgsk/quilc.git $GITHUB_WORKSPACE/quilc && cd $GITHUB_WORKSPACE/quilc && git checkout bffea7fdb972cc9b3a50b790246b6a3143c88c7a
+          git clone https://github.com/quil-lang/quilc.git $GITHUB_WORKSPACE/quilc && cd $GITHUB_WORKSPACE/quilc && git checkout 3d83b665b3addc33be2f696b1cdebc0c4c5a04f9
           git clone https://github.com/quil-lang/qvm.git $GITHUB_WORKSPACE/qvm && cd $GITHUB_WORKSPACE/qvm && git checkout 4617625cb6053b1adfd3f7aea9cd2be328b225f6
           git clone https://github.com/quil-lang/magicl.git $GITHUB_WORKSPACE/magicl
           git clone https://github.com/stylewarning/cl-permutation $GITHUB_WORKSPACE/cl-permutation
           git clone https://github.com/quil-lang/sbcl-librarian.git $GITHUB_WORKSPACE/sbcl-librarian && cd $GITHUB_WORKSPACE/sbcl-librarian && git checkout 04f7e390c777084ac43b8df9e90593a041da2381
 
       - name: Install quilc dependencies
-        run: sudo apt update && sudo apt install -y libblas-dev libffi-dev libffi7 liblapack-dev libz-dev gfortran
+        # libffi-dev pulls in whichever libffi runtime the image ships; naming
+        # it explicitly breaks whenever the runner image moves (libffi7 does not
+        # exist on ubuntu 24.04, which ubuntu-latest now resolves to).
+        run: sudo apt update && sudo apt install -y libblas-dev libffi-dev liblapack-dev libz-dev gfortran
 
       - name: Build libquil.so
         run: |
@@ -128,7 +131,7 @@ jobs:
 
       - name: Pull Lisp dependencies
         run: |
-          git clone https://github.com/notmgsk/quilc.git $GITHUB_WORKSPACE/quilc && cd $GITHUB_WORKSPACE/quilc && git checkout bffea7fdb972cc9b3a50b790246b6a3143c88c7a
+          git clone https://github.com/quil-lang/quilc.git $GITHUB_WORKSPACE/quilc && cd $GITHUB_WORKSPACE/quilc && git checkout 3d83b665b3addc33be2f696b1cdebc0c4c5a04f9
           git clone https://github.com/quil-lang/qvm.git $GITHUB_WORKSPACE/qvm && cd $GITHUB_WORKSPACE/qvm && git checkout 4617625cb6053b1adfd3f7aea9cd2be328b225f6
           git clone https://github.com/quil-lang/magicl.git $GITHUB_WORKSPACE/magicl
           git clone https://github.com/stylewarning/cl-permutation $GITHUB_WORKSPACE/cl-permutation
