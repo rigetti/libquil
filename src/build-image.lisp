@@ -35,6 +35,28 @@
         (funcall (read-from-string "quicklisp:quickload") system)
         (asdf:load-system system))))
 
+;; Load OpenBLAS before anything else pulls in a BLAS/LAPACK, so that its symbols
+;; are the ones that resolve.
+;;
+;; magicl looks for Homebrew's reference LAPACK first and falls back to a bare
+;; liblapack.dylib, which on macOS is Accelerate's. Neither is usable here: the
+;; reference build returns incorrect eigenvectors on arm64 ("Could not find
+;; diagonalizer for matrix ... after 16 attempts"), and Accelerate's LAPACK predates
+;; 3.3, so routines quilc needs are simply missing ("The alien function zuncsd_ is
+;; undefined"). OpenBLAS is correct and complete on both counts.
+;;
+;; SBCL records loaded shared objects in the core and reloads them at startup, so
+;; this choice is baked into the artifact rather than left to the loader.
+#+darwin
+(let ((openblas (find-if #'probe-file
+                         '("/opt/homebrew/opt/openblas/lib/libopenblas.dylib"
+                           "/usr/local/opt/openblas/lib/libopenblas.dylib"))))
+  (if openblas
+      (sb-alien:load-shared-object openblas)
+      (warn "OpenBLAS not found; magicl may load a BLAS/LAPACK that miscomputes ~
+             eigenvectors or lacks routines quilc needs. Install it with ~
+             `brew install openblas'.")))
+
 (load-system '#:sbcl-librarian)
 (load-system '#:libquil)
 

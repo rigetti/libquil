@@ -32,8 +32,13 @@ sudo apt install libblas-dev libffi-dev liblapack-dev libz-dev
 On systems which use `brew` to install packages (e.g macOS), these libraries can be installed with the command
 
 ```
-brew install lapack openblas libffi
+brew install openblas libffi
 ```
+
+> Note: do not install Homebrew's `lapack` on Apple Silicon. `magicl` prefers it
+> over every other backend, and it computes incorrect eigenvectors there, which
+> surfaces as `Could not find diagonalizer for matrix ... after 16 attempts`
+> during compilation.
 
 ## Automated installation
 

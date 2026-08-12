@@ -77,7 +77,7 @@ endif
 	mkdir -p $(RUNTIME_DIR)
 	cp $(LIBSBCL) $(RUNTIME_DIR)/libsbcl.so
 	cp "$(SBCL_LIBRARIAN_DIR)lib/sbcl_librarian_err.h" $(RUNTIME_DIR)/
-	cd $(RUNTIME_DIR) && $(CC) $(SHARED_FLAGS) -o libsbcl_librarian$(SHARED_SUFFIX) \
+	cd $(RUNTIME_DIR) && $(CC) $(SHARED_FLAGS) -fPIC -o libsbcl_librarian$(SHARED_SUFFIX) \
 	    sbcl_librarian.c \
 	    "$(SBCL_LIBRARIAN_DIR)lib/entry_point.c" \
 	    -DLIBSBCL_LIBRARIAN_API_BUILD \
@@ -85,7 +85,7 @@ endif
 	    -I. -I"$(SBCL_LIBRARIAN_DIR)lib" -L. -lsbcl $(ZSTD_LIBS)
 
 $(LIBQUIL_TARGET): libquil.c $(CORE) $(RUNTIME_LIB)
-	$(CC) $(SHARED_FLAGS) -o $@ libquil.c \
+	$(CC) $(SHARED_FLAGS) -fPIC -o $@ libquil.c \
 	    -I. -I$(RUNTIME_DIR) -I"$(SBCL_LIBRARIAN_DIR)lib" \
 	    -L$(RUNTIME_DIR) -lsbcl_librarian
 

@@ -12,6 +12,10 @@ env:
   # fork; move this back to quil-lang/sbcl-librarian once they are upstream.
   SBCL_LIBRARIAN_REPO: "https://github.com/rigetti/sbcl-librarian.git"
   SBCL_LIBRARIAN_REF: "fix-secondary-system-bundles"
+  # The Quicklisp dist supplying the Lisp dependencies. It has to be recent enough
+  # for current cl-quil: the long-standing 2022-04-01 pin predates clos-encounters
+  # and fails with SYSTEM-NOT-FOUND.
+  QUICKLISP_VERSION: "2026-01-01"
 
 jobs:  
   build-linux:
@@ -54,7 +58,7 @@ jobs:
 
           sudo apt install -y wget
           wget -P /tmp/ 'https://beta.quicklisp.org/quicklisp.lisp'
-          sbcl --noinform --non-interactive --load /tmp/quicklisp.lisp --eval "(quicklisp-quickstart:install :dist-url \"http://beta.quicklisp.org/dist/quicklisp/2022-04-01/distinfo.txt\")"
+          sbcl --noinform --non-interactive --load /tmp/quicklisp.lisp --eval "(quicklisp-quickstart:install :dist-url \"http://beta.quicklisp.org/dist/quicklisp/$QUICKLISP_VERSION/distinfo.txt\")"
           sbcl --noinform --non-interactive --load ~/quicklisp/setup.lisp --eval '(ql-util:without-prompting (ql:add-to-init-file))'
           echo "#+quicklisp(push (truename \"$GITHUB_WORKSPACE\") ql:*local-project-directories*)" >> ~/.sbclrc
           rm -f /tmp/quicklisp.lisp
@@ -121,7 +125,7 @@ jobs:
             /usr/local/bin/sbcl
             ~/quicklisp
             ~/.sbclrc
-          key: ${{ runner.os }}-${{ runner.arch }}-build-${{ hashFiles('**/macos-versions' )}}
+          key: ${{ runner.os }}-${{ runner.arch }}-build-${{ hashFiles('**/versions')}}
 
       - uses: Homebrew/actions/setup-homebrew@master
         name: Setup homebrew
@@ -142,7 +146,7 @@ jobs:
 
           brew install wget
           wget -P /tmp/ 'https://beta.quicklisp.org/quicklisp.lisp'
-          sbcl --noinform --non-interactive --load /tmp/quicklisp.lisp --eval "(quicklisp-quickstart:install :dist-url \"http://beta.quicklisp.org/dist/quicklisp/2022-04-01/distinfo.txt\")"
+          sbcl --noinform --non-interactive --load /tmp/quicklisp.lisp --eval "(quicklisp-quickstart:install :dist-url \"http://beta.quicklisp.org/dist/quicklisp/$QUICKLISP_VERSION/distinfo.txt\")"
           sbcl --noinform --non-interactive --load ~/quicklisp/setup.lisp --eval '(ql-util:without-prompting (ql:add-to-init-file))'
           echo "#+quicklisp(push (truename \"$GITHUB_WORKSPACE\") ql:*local-project-directories*)" >> ~/.sbclrc
           rm -f /tmp/quicklisp.lisp
@@ -157,7 +161,17 @@ jobs:
           git clone $SBCL_LIBRARIAN_REPO $GITHUB_WORKSPACE/sbcl-librarian && cd $GITHUB_WORKSPACE/sbcl-librarian && git checkout $SBCL_LIBRARIAN_REF
 
       - name: Install quilc dependencies
-        run: brew install lapack openblas libffi gfortran
+        run: |
+          # Deliberately not installing lapack. magicl prefers Homebrew's reference
+          # LAPACK over everything else, and on arm64 it computes incorrect
+          # eigenvectors -- compilation then fails with "Could not find diagonalizer
+          # for matrix ... after 16 attempts". With it absent, magicl falls through to
+          # a bare liblapack.dylib, which these symlinks point at OpenBLAS.
+          brew uninstall --ignore-dependencies lapack || true
+          brew install openblas libffi gfortran
+          sudo mkdir -p /usr/local/lib
+          sudo ln -sf "$(brew --prefix openblas)/lib/libopenblas.dylib" /usr/local/lib/liblapack.dylib
+          sudo ln -sf "$(brew --prefix openblas)/lib/libopenblas.dylib" /usr/local/lib/libblas.dylib
 
       - name: Build libquil.dylib
         run: |
