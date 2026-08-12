@@ -21,12 +21,16 @@ These libraries are required by `libquil`:
 
 - `BLAS`, `LAPACK` for linear algebra routines
 - `libffi` for cross-language execution
-- `libz` for compression
+
+`magicl` loads `BLAS` and `LAPACK` at runtime under their unversioned names,
+`libblas.so` and `liblapack.so` (`.dylib` on macOS). Distributions ship those names in
+their development packages, so installing only a runtime package such as Debian's
+`libblas3` — which provides `libblas.so.3` and no unversioned symlink — is not enough.
 
 On systems which use `apt` to install packages (e.g. Ubuntu), these libraries can be installed with the command
 
 ```
-sudo apt install libblas-dev libffi-dev liblapack-dev libz-dev
+sudo apt install libblas-dev libffi-dev liblapack-dev
 ```
 
 On systems which use `brew` to install packages (e.g macOS), these libraries can be installed with the command
