@@ -4,5 +4,7 @@ QVM_VERSION=4617625cb6053b1adfd3f7aea9cd2be328b225f6
 QUILC_VERSION=3d83b665b3addc33be2f696b1cdebc0c4c5a04f9
 SBCL_LIBRARIAN_VERSION=fix-secondary-system-bundles
 SBCL_VERSION=sbcl-2.6.7
+# Linux cross-compilation host; see build.yml.
+SBCL_BOOTSTRAP_VERSION=2.5.0
 # 2022-04-01 predates clos-encounters, which current cl-quil depends on.
 QUICKLISP_VERSION=2026-01-01

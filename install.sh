@@ -7,11 +7,15 @@ err() {
   exit 1
 }
 
+# Which repository to fetch releases from. Override to install from a fork, which
+# is how a prerelease can be tested before it is published from the main repository.
+LIBQUIL_RELEASE_REPO="${LIBQUIL_RELEASE_REPO:-rigetti/libquil}"
+
 if [[ -n "${1-}" ]]
 then
-  LIBQUIL_URL_PREFIX="https://github.com/rigetti/libquil/releases/download/v${1}"
+  LIBQUIL_URL_PREFIX="https://github.com/${LIBQUIL_RELEASE_REPO}/releases/download/v${1}"
 else
-  LIBQUIL_URL_PREFIX="https://github.com/rigetti/libquil/releases/latest/download"
+  LIBQUIL_URL_PREFIX="https://github.com/${LIBQUIL_RELEASE_REPO}/releases/latest/download"
 fi
 
 OS="$(uname)"
@@ -55,7 +59,7 @@ unzip "${LIBQUIL_RELEASE_FILE}"
 
 # libquil.core must land in the same directory as libsbcl_librarian: the runtime
 # locates its core relative to its own path.
-sudo mkdir -p "${LIBQUIL_INCLUDE_PREFIX}"
+sudo mkdir -p "${LIBQUIL_LIB_PREFIX}" "${LIBQUIL_INCLUDE_PREFIX}"
 sudo cp libquil/libquil.h libquil/sbcl_librarian.h libquil/sbcl_librarian_err.h "${LIBQUIL_INCLUDE_PREFIX}"
 sudo cp libquil/libquil.core libquil/libsbcl.so "${LIBQUIL_LIB_PREFIX}"
 

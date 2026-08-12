@@ -1,14 +1,9 @@
 name: Release libquil
 
 on:
+  # Dispatching on main cuts a release; dispatching on any other branch cuts a
+  # prerelease, so libquil-sys can be built against a libquil that is not yet stable.
   workflow_dispatch:
-    inputs:
-      type:
-        description: Bump versions and trigger a new release.
-        required: true
-        default: release
-        options:
-          - release
 
 jobs:
   build:
@@ -28,6 +23,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # Release the ref this was dispatched on, not the default branch.
+          ref: ${{ github.ref }}
 
       # Each artifact is downloaded into its own directory: the two macOS
       # artifacts contain identically named files, so a shared directory would
@@ -59,9 +56,25 @@ jobs:
           unzip -l artifacts/macos-arm64.zip
 
       - name: Install Knope
-        uses: knope-dev/action@v2.0.0
+        uses: knope-dev/action@v2.1.2
         with:
-          version: 0.11.0
+          # 0.23 is needed for `--prerelease-label` and because older versions tag
+          # the default branch rather than the ref being released, which produces a
+          # tag pointing at the wrong code when releasing from a branch.
+          version: 0.23.0 # Test before updating, breaking changes likely: https://github.com/knope-dev/action#install-latest-version
 
       - name: Release
-        run: knope release -v
+        env:
+          # The Release step authenticates with this rather than an argument.
+          GITHUB_TOKEN: ${{ secrets.PAT }}
+        run: |
+          set -euo pipefail
+
+          # A release off main is a real one; anywhere else it can only be a
+          # prerelease, which is how libquil gets published for testing while an ABI
+          # change is still under review.
+          if [[ "$GITHUB_REF" == "refs/heads/main" ]]; then
+            knope release -v
+          else
+            knope release -v --prerelease-label=rc
+          fi

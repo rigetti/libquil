@@ -30,20 +30,28 @@ Old (what libquil does on `main`):
 - `libquil.dylib` is self-contained, statically embedding the SBCL runtime.
 - The consumer calls `init("/path/to/libquil.core")` explicitly.
 
-New (what this branch moves to):
+Upstream's current model:
 
-- A **runtime** is built once: `libsbcl_librarian.dylib` plus `sbcl_librarian.core`.
-  It initializes Lisp from a shared-library constructor at load time, locating its
-  core by name next to itself, with heap size from `SBCL_LIBRARIAN_HEAP_SIZE`.
+- A **runtime** is built: `libsbcl_librarian`, which initializes Lisp from a
+  shared-library constructor at load time, locating a core by name next to itself,
+  with heap size from `SBCL_LIBRARIAN_HEAP_SIZE`.
 - Each consumer is a **FASL library**: a small shared library holding the generated
   C bindings, incbin-embedded FASL bundles for its ASDF system and dependencies,
-  and a constructor that loads those bundles into the already-running image.
+  and a constructor that loads those bundles into the running image.
   `create-fasl-library-cmake-project` generates the whole CMake project.
-- There is no per-consumer `.core`, and no explicit init call.
+- There is no per-consumer core, and no explicit init call.
+
+New (what this branch actually does):
+
+- The runtime, as above — but built with `SBCL_LIBRARIAN_CORE_NAME=libquil.core`
+  so it brings up libquil's image (D5).
+- `libquil.dylib` is the generated C bindings only, linked against the runtime.
+- The Lisp side stays a **core**, not FASL bundles, for the reasons in D3.
+- No explicit init call: loading the runtime starts Lisp.
 
 ## Decisions
 
-### D1: Follow the upstream FASL-library model rather than pinning a fork
+### D1: Follow upstream's current model rather than pinning a fork
 
 Rejected alternatives: (a) stay on `04f7e39` and carry the one-line `int-sap`
 patch forever; (b) fork sbcl-librarian to keep `define-api :error-map` alive.
@@ -131,7 +139,26 @@ subtypes of `error` -- `invalid-instruction-condition` has no supertype at all -
 and with a `cl:error` handler those escape into the debugger and hang the calling
 process. libquil's original error map bound `T` for the same reason.
 
-### D7: Keep shipping the SBCL runtime as `libsbcl.so`, even on macOS
+### D7: Choose the BLAS/LAPACK backend at build time, not load time
+
+`src/build-image.lisp` loads OpenBLAS before anything else can pull in a
+BLAS/LAPACK. magicl otherwise picks one by searching: Homebrew's reference LAPACK
+first, then a bare `liblapack.dylib`. On arm64 macOS both are wrong, in different
+ways:
+
+- Homebrew's reference LAPACK returns incorrect eigenvectors, which surfaces as
+  `Could not find diagonalizer for matrix ... after 16 attempts`. (Confirmed
+  directly: `eig` violated the trace invariant by ~5.8 for n>=3, while OpenBLAS
+  agreed to ~1e-15.)
+- A bare `liblapack.dylib` resolves to Accelerate's, which predates LAPACK 3.3 and
+  is missing routines quilc calls: `The alien function "zuncsd_" is undefined`.
+
+Because SBCL records loaded shared objects in the core and reloads them at startup,
+loading OpenBLAS at build time bakes the choice into the artifact rather than
+leaving it to whatever the loader finds on the user's machine. Patching magicl was
+the alternative; this keeps the fix inside libquil.
+
+### D8: Keep shipping the SBCL runtime as `libsbcl.so`, even on macOS
 
 SBCL's `make-shared-library.sh` emits `libsbcl.so` on every platform, and that
 string becomes the install name recorded in `libsbcl_librarian.dylib`. Renaming the
@@ -204,4 +231,10 @@ the Linux job.
 
 **Upstreaming.** The three sbcl-librarian fixes are worth PRs regardless of what
 libquil does; the FASL-bundle one is a plain bug, and the library-prefix one breaks
-upstream's own libcalc example on Unix.
+upstream's own libcalc example on Unix. They are open as
+quil-lang/sbcl-librarian#91.
+
+**Release ordering.** libquil-sys cannot build against a released libquil older
+than this change, so the two have to be released together: cut a libquil
+prerelease (`knope prerelease`, added for this reason), point libquil-sys's
+`LIBQUIL_VERSION` at it, then release both for real.
