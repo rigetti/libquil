@@ -1,3 +1,14 @@
+## 0.4.0-rc.0 (2026-08-13)
+
+### Breaking Changes
+
+- build against modern sbcl-librarian
+
+### Fixes
+
+- load OpenBLAS into the image before magicl picks a backend
+- check for BLAS and LAPACK, and install without sudo when already root
+
 ## 0.3.2 (2023-12-14)
 
 ### Fixes
