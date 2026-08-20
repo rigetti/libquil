@@ -55,9 +55,8 @@
   ;; Handle T, not CL:ERROR. cl-quil signals conditions that are not subtypes of
   ;; ERROR -- INVALID-INSTRUCTION-CONDITION, raised for an unrecognized
   ;; instruction, has no supertype at all -- so a handler bound to CL:ERROR lets
-  ;; them escape to the debugger and hang the calling process. libquil's original
-  ;; error map bound T for this reason. Warnings are passed over first so they do
-  ;; not abort the call.
+  ;; them escape to the debugger and hang the calling process. Warnings are
+  ;; passed over first so they do not abort the call.
   ((cl:warning #'cl:continue)
    (t (lambda (condition)
         (setf sbcl-librarian::*error-message* (format nil "~a" condition))

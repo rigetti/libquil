@@ -26,9 +26,9 @@ jobs:
           # Release the ref this was dispatched on, not the default branch.
           ref: ${{ github.ref }}
 
-      # Each artifact is downloaded into its own directory: the two macOS
-      # artifacts contain identically named files, so a shared directory would
-      # have one overwrite the other.
+      # Each artifact is downloaded into its own directory: they contain
+      # identically named files, so a shared directory would have one overwrite
+      # the other.
       - name: Download linux artifacts
         uses: actions/download-artifact@v4
         with:
@@ -58,9 +58,6 @@ jobs:
       - name: Install Knope
         uses: knope-dev/action@v2.1.2
         with:
-          # 0.23 is needed for `--prerelease-label` and because older versions tag
-          # the default branch rather than the ref being released, which produces a
-          # tag pointing at the wrong code when releasing from a branch.
           version: 0.23.0 # Test before updating, breaking changes likely: https://github.com/knope-dev/action#install-latest-version
 
       - name: Release

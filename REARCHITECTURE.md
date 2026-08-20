@@ -104,11 +104,11 @@ which is why D6 exists.
 
 ### D4: Build the runtime manually rather than via its CMake project
 
-Upstream's `lib/CMakeLists.txt` invokes the generator with `sbcl --script`, which
+sbcl-librarian's own `lib/CMakeLists.txt` invokes the generator with `sbcl --script`, which
 skips `~/.sbclrc` and therefore Quicklisp — so `generate-bindings.lisp`'s
 `(asdf:load-system :swank)` fails with `Component :SWANK not found`.
 
-Rather than patch upstream's CMake, `src/build-image.lisp` defines the runtime's
+Rather than patch sbcl-librarian's CMake, `src/build-image.lisp` defines the runtime's
 aggregate library itself and emits `runtime/sbcl_librarian.c` alongside libquil's
 own bindings. One image therefore produces everything: libquil's bindings, the
 runtime's bindings, and the core that backs both. That also avoids the swank
@@ -201,20 +201,7 @@ Three fixes, on the `fix-secondary-system-bundles` branch:
    prefix cleared.
 3. **`SBCL_LIBRARIAN_CORE_NAME`** (D5).
 
-## Status
-
-- [x] Consumer model determined
-- [x] Runtime builds and self-initializes on arm64 macOS
-- [x] libquil builds; `make` alone produces a usable artifact
-- [x] Verified from C: parse, chip, compile, program string, and error reporting
-- [x] libquil-sys updated to the new ABI -- 22/22 tests pass
-- [x] Python bindings rebuilt and exercised
-- [x] C examples updated and passing (`make test` in both `examples/` directories)
-- [x] CI, `install.sh` and release archives updated for the new artifact set
-- [x] Packaging verified by simulating package -> zip -> install -> build and
-      running the libquil-sys suite against the installed layout (22/22)
-
-## Open
+## Known limitations and follow-ups
 
 **CI depends on a fork branch.** `build.yml` clones `$SBCL_LIBRARIAN_REPO` at
 `$SBCL_LIBRARIAN_REF`, currently `rigetti/sbcl-librarian` at

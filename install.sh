@@ -1,19 +1,59 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -u
+# -e so a failed download or unpack stops the install rather than falling through
+# to copying files that were never extracted; -o pipefail so a failure on the left
+# of a pipe is not masked by a successful one on the right.
+set -euo pipefail
 
 err() {
   printf "%s\n" "$@" >&2
   exit 1
 }
 
+usage() {
+  cat <<'EOF'
+Usage: install.sh [--install-deps] [VERSION]
+
+Installs libquil into /usr/local. Must be run as root.
+
+  VERSION         release to install, e.g. 0.4.0. Defaults to the latest release.
+  --install-deps  also install libquil's prerequisites with apt or Homebrew.
+                  Off by default: without it, missing prerequisites are reported
+                  and the install stops. Equivalent to LIBQUIL_INSTALL_DEPS=1.
+
+Environment:
+  LIBQUIL_RELEASE_REPO   repository to fetch releases from (default rigetti/libquil)
+  LIBQUIL_INSTALL_DEPS   set to 1 for --install-deps
+EOF
+}
+
 # Which repository to fetch releases from. Override to install from a fork, which
 # is how a prerelease can be tested before it is published from the main repository.
 LIBQUIL_RELEASE_REPO="${LIBQUIL_RELEASE_REPO:-rigetti/libquil}"
+LIBQUIL_INSTALL_DEPS="${LIBQUIL_INSTALL_DEPS:-0}"
+LIBQUIL_VERSION=""
 
-if [[ -n "${1-}" ]]
+while [[ $# -gt 0 ]]
+do
+  case "${1}" in
+    --install-deps) LIBQUIL_INSTALL_DEPS=1 ;;
+    -h | --help)    usage; exit 0 ;;
+    -*)             usage >&2; err "" "Unknown option: ${1}" ;;
+    *)
+      if [[ -n "${LIBQUIL_VERSION}" ]]
+      then
+        usage >&2
+        err "" "Unexpected argument: ${1}"
+      fi
+      LIBQUIL_VERSION="${1}"
+      ;;
+  esac
+  shift
+done
+
+if [[ -n "${LIBQUIL_VERSION}" ]]
 then
-  LIBQUIL_URL_PREFIX="https://github.com/${LIBQUIL_RELEASE_REPO}/releases/download/v${1}"
+  LIBQUIL_URL_PREFIX="https://github.com/${LIBQUIL_RELEASE_REPO}/releases/download/v${LIBQUIL_VERSION}"
 else
   LIBQUIL_URL_PREFIX="https://github.com/${LIBQUIL_RELEASE_REPO}/releases/latest/download"
 fi
@@ -44,8 +84,106 @@ then
           "https://github.com/rigetti/libquil#building-from-source"
       ;;
   esac
+# Windows shells report one of these. libquil publishes no Windows build, so there
+# is nothing to install even where the shell would run this script.
+elif [[ "${OS}" == CYGWIN* || "${OS}" == MINGW* || "${OS}" == MSYS* || "${OS}" == "Windows_NT" ]]
+then
+  err "Windows is not supported: libquil publishes builds for Linux and macOS only."
 else
-  err "Unsupported operating system. Supported operating systems are Linux and macOS."
+  err "Unsupported operating system: ${OS}. libquil supports Linux and macOS."
+fi
+
+for tool in curl unzip
+do
+  command -v "${tool}" >/dev/null 2>&1 ||
+    err "This installer needs ${tool}, which was not found. Install it and try again."
+done
+
+LIBQUIL_LIB_PREFIX="/usr/local/lib"
+LIBQUIL_INCLUDE_PREFIX="/usr/local/include/libquil"
+
+# Installing into /usr/local needs root, and on macOS clearing the quarantine
+# attribute does too. Checked before anything else runs so the failure is immediate.
+if [[ "$(id -u)" -ne 0 ]]
+then
+  err "This script must be run as root; it installs into ${LIBQUIL_LIB_PREFIX} and ${LIBQUIL_INCLUDE_PREFIX}."
+fi
+
+# Installing prerequisites is opt-in. The default is to check and report, because
+# this script is commonly run as `curl ... | sudo bash` and a package manager
+# invocation there has a much wider blast radius than copying files into
+# /usr/local. Consumers that want the one-shot path pass --install-deps.
+install_prerequisites() {
+  if [[ "${OS}" == "Darwin" ]]
+  then
+    command -v brew >/dev/null 2>&1 ||
+      err "--install-deps needs Homebrew on macOS, which was not found." \
+          "Install libquil's requirements another way and re-run without --install-deps:" \
+          "https://github.com/rigetti/libquil#requirements"
+
+    # Homebrew refuses to run as root, so it has to run as the invoking user.
+    # `brew --prefix` is the one subcommand it does allow as root, which is why the
+    # search paths above can call it directly.
+    [[ -n "${SUDO_USER-}" ]] ||
+      err "--install-deps needs to run Homebrew, which refuses to run as root." \
+          "Re-run through sudo from your normal account (sudo bash install.sh --install-deps)," \
+          "or install the requirements yourself and drop --install-deps."
+    local brew_cmd=(sudo -u "${SUDO_USER}" brew)
+
+    # Homebrew's reference `lapack` is deliberately NOT treated as a conflict here,
+    # even though magicl prefers it over every other backend and it computes
+    # incorrect eigenvectors on arm64. A prebuilt libquil is immune: build-image.lisp
+    # loads OpenBLAS before magicl can pick a backend, and SBCL records loaded shared
+    # objects in the core and reopens them at startup, so the choice is baked into the
+    # artifact (REARCHITECTURE.md D7). Verified against a machine with lapack 3.12.1
+    # installed: the release loads OpenBLAS and never touches the lapack keg.
+    #
+    # It does matter when building libquil from source, which is why CI uninstalls it
+    # and the README says not to install it. Refusing to install a working binary over
+    # it would be wrong.
+
+    # OpenBLAS provides both BLAS and LAPACK, and is correct on arm64.
+    local missing=()
+    local formula
+    for formula in openblas libffi
+    do
+      "${brew_cmd[@]}" list --formula "${formula}" >/dev/null 2>&1 || missing+=("${formula}")
+    done
+    if [[ "${#missing[@]}" -gt 0 ]]
+    then
+      echo "Installing prerequisites with Homebrew: ${missing[*]}"
+      "${brew_cmd[@]}" install "${missing[@]}"
+    fi
+    return
+  fi
+
+  command -v apt-get >/dev/null 2>&1 ||
+    err "--install-deps installs prerequisites with apt, which was not found." \
+        "Install libquil's requirements with your package manager and re-run without" \
+        "--install-deps: https://github.com/rigetti/libquil#requirements"
+
+  # The -dev packages, not the runtime ones: magicl and CFFI load these under their
+  # unversioned names, which only the development packages provide.
+  local missing=()
+  local package
+  for package in libblas-dev liblapack-dev libffi-dev
+  do
+    if ! dpkg-query -W -f='${Status}' "${package}" 2>/dev/null | grep -q "^install ok installed$"
+    then
+      missing+=("${package}")
+    fi
+  done
+  if [[ "${#missing[@]}" -gt 0 ]]
+  then
+    echo "Installing prerequisites with apt: ${missing[*]}"
+    apt-get update
+    apt-get install -y "${missing[@]}"
+  fi
+}
+
+if [[ "${LIBQUIL_INSTALL_DEPS}" == "1" ]]
+then
+  install_prerequisites
 fi
 
 # magicl dlopens BLAS and LAPACK under their unversioned names once libquil is in use,
@@ -58,89 +196,90 @@ else
   LIBQUIL_LIB_SUFFIX="so"
 fi
 
+# Where to look for an unversioned library, in roughly the order the platform's
+# loader considers them.
+LIBQUIL_SEARCH_DIRS=(/usr/local/lib /usr/lib)
+if [[ "${OS}" == "Darwin" ]]
+then
+  # `man dyld` gives /usr/lib and /usr/local/lib as the defaults. Homebrew's
+  # prefixes are not among them, but counting them keeps a normal
+  # `brew install openblas` from being reported as missing, at the cost of not
+  # catching the case where magicl ends up unable to load a keg-only install.
+  if command -v brew >/dev/null 2>&1
+  then
+    LIBQUIL_BREW_PREFIX="$(brew --prefix)"
+    LIBQUIL_SEARCH_DIRS+=("${LIBQUIL_BREW_PREFIX}/lib" "${LIBQUIL_BREW_PREFIX}/opt/openblas/lib")
+  fi
+else
+  LIBQUIL_SEARCH_DIRS+=(/usr/lib64 /lib /lib64)
+fi
+
 library_is_available() {
   local soname="lib${1}.${LIBQUIL_LIB_SUFFIX}"
 
   # The loader's own cache is authoritative where it exists.
-  if [[ -z "${IS_LINUX-}" ]]
-  then
-    # dyld has no queryable cache; check the paths it searches by default, plus the
-    # Homebrew prefixes that are not on it. Counting the latter keeps a normal
-    # `brew install openblas` from being reported as missing, at the cost of not
-    # catching the case where magicl ends up unable to load a keg-only install.
-    local dir
-    for dir in /usr/local/lib /usr/lib /opt/homebrew/lib /opt/homebrew/opt/openblas/lib
-    do
-      [[ -e "${dir}/${soname}" ]] && return 0
-    done
-    return 1
-  elif command -v ldconfig >/dev/null 2>&1
+  if [[ "${OS}" != "Darwin" ]] && command -v ldconfig >/dev/null 2>&1
   then
     ldconfig -p | grep -q "[[:space:]]${soname}[[:space:]]" && return 0
   fi
 
   local dir
-  for dir in /usr/local/lib /usr/lib /usr/lib64 /lib /lib64
+  for dir in "${LIBQUIL_SEARCH_DIRS[@]}"
   do
     [[ -e "${dir}/${soname}" ]] && return 0
   done
   return 1
 }
 
-LIBQUIL_MISSING=()
+LIBQUIL_MISSING_LIBS=()
 for lib in blas lapack
 do
-  library_is_available "${lib}" || LIBQUIL_MISSING+=("lib${lib}.${LIBQUIL_LIB_SUFFIX}")
+  library_is_available "${lib}" || LIBQUIL_MISSING_LIBS+=("lib${lib}.${LIBQUIL_LIB_SUFFIX}")
 done
 
-if [[ "${#LIBQUIL_MISSING[@]}" -gt 0 ]]
+if [[ "${#LIBQUIL_MISSING_LIBS[@]}" -gt 0 ]]
 then
-  err "Missing required libraries: ${LIBQUIL_MISSING[*]}" \
+  err "Missing required libraries: ${LIBQUIL_MISSING_LIBS[*]}" \
       "" \
       "libquil loads these at runtime under exactly these unversioned names, so a" \
       "runtime-only package that provides a versioned name is not sufficient." \
-      "See https://github.com/rigetti/libquil#requirements"
+      "" \
+      "Re-run with --install-deps to install them with apt or Homebrew, or install" \
+      "them yourself: https://github.com/rigetti/libquil#requirements"
 fi
 
 LIBQUIL_RELEASE_URL="${LIBQUIL_URL_PREFIX}/${LIBQUIL_RELEASE_FILE}"
 LIBQUIL_TEMP_DIR="$(mktemp -d)"
-LIBQUIL_LIB_PREFIX="/usr/local/lib"
-LIBQUIL_INCLUDE_PREFIX="/usr/local/include/libquil"
 
-# Installing into /usr/local needs root. Container images commonly run as root without
-# sudo installed, where calling it would fail even though nothing needs elevating.
-if [[ "$(id -u)" -eq 0 ]]
-then
-  SUDO=""
-elif command -v sudo >/dev/null 2>&1
-then
-  SUDO="sudo"
-else
-  err "This installer needs root to write to ${LIBQUIL_LIB_PREFIX} and ${LIBQUIL_INCLUDE_PREFIX}," \
-      "but it is not running as root and sudo is not available."
-fi
+trap 'rm -rf "${LIBQUIL_TEMP_DIR}"' EXIT
+cd "${LIBQUIL_TEMP_DIR}"
 
-pushd "${LIBQUIL_TEMP_DIR}" || exit
-curl -L "${LIBQUIL_RELEASE_URL}" -o "${LIBQUIL_RELEASE_FILE}"
+# -f so an HTTP error is a non-zero exit rather than an error page written to the
+# archive: without it a bad version tag saves a "404: Not Found" body as the .zip
+# and the failure only surfaces later, as a confusing unzip error.
+curl -fL "${LIBQUIL_RELEASE_URL}" -o "${LIBQUIL_RELEASE_FILE}" ||
+  err "Could not download ${LIBQUIL_RELEASE_URL}" \
+      "Check that the requested version exists: https://github.com/${LIBQUIL_RELEASE_REPO}/releases"
 unzip "${LIBQUIL_RELEASE_FILE}"
 
 # libquil.core must land in the same directory as libsbcl_librarian: the runtime
 # locates its core relative to its own path.
-${SUDO} mkdir -p "${LIBQUIL_LIB_PREFIX}" "${LIBQUIL_INCLUDE_PREFIX}"
-${SUDO} cp libquil/libquil.h libquil/sbcl_librarian.h libquil/sbcl_librarian_err.h "${LIBQUIL_INCLUDE_PREFIX}"
-${SUDO} cp libquil/libquil.core libquil/libsbcl.so "${LIBQUIL_LIB_PREFIX}"
+mkdir -p "${LIBQUIL_LIB_PREFIX}" "${LIBQUIL_INCLUDE_PREFIX}"
+cp libquil/libquil.h libquil/sbcl_librarian.h libquil/sbcl_librarian_err.h "${LIBQUIL_INCLUDE_PREFIX}"
+cp libquil/libquil.core libquil/libsbcl.so "${LIBQUIL_LIB_PREFIX}"
 
 if [[ -n "${IS_LINUX-}" ]]
 then
-  ${SUDO} cp libquil/libquil.so libquil/libsbcl_librarian.so "${LIBQUIL_LIB_PREFIX}"
-  ${SUDO} ldconfig
+  cp libquil/libquil.so libquil/libsbcl_librarian.so "${LIBQUIL_LIB_PREFIX}"
+  ldconfig
 else
-  ${SUDO} cp libquil/libquil.dylib libquil/libsbcl_librarian.dylib "${LIBQUIL_LIB_PREFIX}"
+  cp libquil/libquil.dylib libquil/libsbcl_librarian.dylib "${LIBQUIL_LIB_PREFIX}"
+  echo "Removing the quarantine attribute from the installed files."
   # This disables the "cannot open libquil.dylib from untrusted developer" dialog.
   # A better solution for this would be to properly codesign the files, but that
   # is a non-trivial amount of work.
-  ${SUDO} xattr -r -d com.apple.quarantine "${LIBQUIL_LIB_PREFIX}/libquil.dylib"
-  ${SUDO} xattr -r -d com.apple.quarantine "${LIBQUIL_LIB_PREFIX}/libsbcl_librarian.dylib"
-  ${SUDO} xattr -r -d com.apple.quarantine "${LIBQUIL_LIB_PREFIX}/libquil.core"
-  ${SUDO} xattr -r -d com.apple.quarantine "${LIBQUIL_LIB_PREFIX}/libsbcl.so"
+  xattr -r -d com.apple.quarantine "${LIBQUIL_LIB_PREFIX}/libquil.dylib"
+  xattr -r -d com.apple.quarantine "${LIBQUIL_LIB_PREFIX}/libsbcl_librarian.dylib"
+  xattr -r -d com.apple.quarantine "${LIBQUIL_LIB_PREFIX}/libquil.core"
+  xattr -r -d com.apple.quarantine "${LIBQUIL_LIB_PREFIX}/libsbcl.so"
 fi

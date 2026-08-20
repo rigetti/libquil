@@ -3,8 +3,7 @@ TEST_OBJS = $(TEST_SRCS:.c=)
 BUILD_DIR = ../..
 RUNTIME_DIR = $(BUILD_DIR)/runtime
 # libquil is the generated bindings; libsbcl_librarian is the runtime that brings up
-# the Lisp image (and supplies get_error_message). No -pagezero_size: the image is
-# mapped by the runtime library, not by this executable.
+# the Lisp image (and supplies get_error_message).
 CCFLAGS = -lquil -lsbcl_librarian -L$(BUILD_DIR) -L$(RUNTIME_DIR) -I$(BUILD_DIR) -I$(RUNTIME_DIR)
 
 .PHONY: all clean

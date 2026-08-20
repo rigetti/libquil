@@ -5,21 +5,22 @@ on:
   workflow_call:
 
 env:
-  # SBCL is built from source for its linkable runtime; see the build steps.
+  # SBCL is built from source for its linkable runtime; see scripts/install-sbcl.sh.
   SBCL_VERSION: "2.6.7"
   # Host used to cross-compile SBCL_VERSION on Linux. It cannot be apt's (22.04
   # ships 2.1.11, too old) nor SBCL_VERSION's own binary release, which is linked
   # against glibc 2.38 and will not run on 22.04. 2.5.0's binary needs only glibc
   # 2.34 and is recent enough to build 2.6.7.
   SBCL_BOOTSTRAP_VERSION: "2.5.0"
-  # libquil depends on three sbcl-librarian fixes (secondary-system FASL bundles,
-  # library prefix, configurable core name). They live on a branch of Rigetti's
-  # fork; move this back to quil-lang/sbcl-librarian once they are upstream.
+  # libquil depends on three sbcl-librarian fixes
+  # (secondary-system FASL bundles, library prefix, configurable core name).
+  # They live on a branch of Rigetti's fork;
+  # TODO(#60):
+  # use a released quil-lang/sbcl-librarian once these fixes are released:
+  # https://github.com/quil-lang/sbcl-librarian/pull/91
   SBCL_LIBRARIAN_REPO: "https://github.com/rigetti/sbcl-librarian.git"
   SBCL_LIBRARIAN_REF: "fix-secondary-system-bundles"
-  # The Quicklisp dist supplying the Lisp dependencies. It has to be recent enough
-  # for current cl-quil: the long-standing 2022-04-01 pin predates clos-encounters
-  # and fails with SYSTEM-NOT-FOUND.
+  # The Quicklisp dist supplying the Lisp dependencies.
   QUICKLISP_VERSION: "2026-01-01"
 
 jobs:  
@@ -48,51 +49,33 @@ jobs:
             /usr/local/bin/sbcl
             ~/quicklisp
             ~/.sbclrc
+          # env.ImageOS is set by the runner image itself (e.g. "ubuntu22", "macos15");
+          # unlike runner.os it changes when the image is upgraded,
+          # so a new image does not reuse a cache built against the old one.
+          # Note that this variable is stable but not yet documented:
+          # https://github.com/github/docs/issues/40108
           key: ${{ env.ImageOS }}-${{ runner.arch }}-build-${{ hashFiles('**/versions') }}
 
       - if: steps.cache-sbcl.outputs.cache-hit != 'true'
         name: Install SBCL, libraries, and quicklisp
         run: |
           sudo apt update && sudo apt install -y build-essential bzip2 wget
-          # SBCL is built from source because a linkable runtime (libsbcl.so) is
-          # required and neither make.sh nor any package manager produces one.
-          #
-          # The host is a binary release of SBCL_BOOTSTRAP_VERSION rather than apt's:
-          # cross compiling a current SBCL needs a host of roughly the same vintage,
-          # and 22.04 ships 2.1.11, which fails in make-host-1 with "FAILURE-P was set
-          # when creating genesis.fasl". 22.04 is used deliberately, since the
-          # artifact inherits the glibc of whatever builds it.
+          # Cross compiling a current SBCL needs a host of roughly the same
+          # vintage, and 22.04 ships 2.1.11, which fails in make-host-1 with
+          # "FAILURE-P was set when creating genesis.fasl". Bootstrap from a
+          # binary release instead. 22.04 is used deliberately, since the artifact
+          # inherits the glibc of whatever builds it.
           wget -q "https://downloads.sourceforge.net/project/sbcl/sbcl/$SBCL_BOOTSTRAP_VERSION/sbcl-$SBCL_BOOTSTRAP_VERSION-x86-64-linux-binary.tar.bz2" -O /tmp/sbcl-bin.tar.bz2
           mkdir -p /tmp/sbcl-bin && tar xf /tmp/sbcl-bin.tar.bz2 -C /tmp/sbcl-bin --strip-components=1
           cd /tmp/sbcl-bin && sudo sh install.sh
-          sudo git clone --single-branch --branch sbcl-$SBCL_VERSION https://git.code.sf.net/p/sbcl/sbcl /usr/src/sbcl
-          cd /usr/src/sbcl && sudo sh make.sh --with-sb-linkable-runtime && sudo sh make-shared-library.sh
-          sudo sh install.sh
-          sudo mkdir -p /usr/local/lib
-          sudo cp src/runtime/libsbcl.so /usr/local/lib/libsbcl.so
-
-          sudo apt install -y wget
-          if [ ! -f ~/quicklisp/setup.lisp ]; then
-            wget -P /tmp/ 'https://beta.quicklisp.org/quicklisp.lisp'
-            sbcl --noinform --non-interactive --load /tmp/quicklisp.lisp --eval "(quicklisp-quickstart:install :dist-url \"http://beta.quicklisp.org/dist/quicklisp/$QUICKLISP_VERSION/distinfo.txt\")"
-            sbcl --noinform --non-interactive --load ~/quicklisp/setup.lisp --eval '(ql-util:without-prompting (ql:add-to-init-file))'
-          fi
-          echo "#+quicklisp(push (truename \"$GITHUB_WORKSPACE\") ql:*local-project-directories*)" >> ~/.sbclrc
-          rm -f /tmp/quicklisp.lisp
-          cat ~/.sbclrc
+          "$GITHUB_WORKSPACE/libquil/scripts/install-sbcl.sh"
 
       - name: Pull Lisp dependencies
-        run: |
-          git clone https://github.com/quil-lang/quilc.git $GITHUB_WORKSPACE/quilc && cd $GITHUB_WORKSPACE/quilc && git checkout 3d83b665b3addc33be2f696b1cdebc0c4c5a04f9
-          git clone https://github.com/quil-lang/qvm.git $GITHUB_WORKSPACE/qvm && cd $GITHUB_WORKSPACE/qvm && git checkout 4617625cb6053b1adfd3f7aea9cd2be328b225f6
-          git clone https://github.com/quil-lang/magicl.git $GITHUB_WORKSPACE/magicl
-          git clone https://github.com/stylewarning/cl-permutation $GITHUB_WORKSPACE/cl-permutation
-          git clone $SBCL_LIBRARIAN_REPO $GITHUB_WORKSPACE/sbcl-librarian && cd $GITHUB_WORKSPACE/sbcl-librarian && git checkout $SBCL_LIBRARIAN_REF
+        run: "$GITHUB_WORKSPACE/libquil/scripts/clone-lisp-deps.sh"
 
       - name: Install quilc dependencies
-        # libffi-dev pulls in whichever libffi runtime the image ships; naming
-        # it explicitly breaks whenever the runner image moves (libffi7 does not
-        # exist on ubuntu 24.04, which ubuntu-latest now resolves to).
+        # libffi-dev pulls in whichever libffi runtime the image ships; naming a
+        # version explicitly breaks whenever the runner image moves.
         run: sudo apt update && sudo apt install -y libblas-dev libffi-dev liblapack-dev libz-dev gfortran
 
       - name: Build libquil.so
@@ -142,6 +125,7 @@ jobs:
             /usr/local/bin/sbcl
             ~/quicklisp
             ~/.sbclrc
+          # See the Linux job for why this keys on env.ImageOS.
           key: ${{ env.ImageOS }}-${{ runner.arch }}-build-${{ hashFiles('**/versions') }}
 
       - uses: Homebrew/actions/setup-homebrew@master
@@ -149,36 +133,16 @@ jobs:
 
       - if: steps.cache-sbcl-macos.outputs.cache-hit != 'true'
         name: Install SBCL, libraries, and quicklisp
+        env:
+          # Homebrew's sbcl is only the cross-compilation host; drop it once the
+          # build is done so the one we install is the one on PATH.
+          SBCL_REMOVE_HOST_CMD: "brew remove -f sbcl"
         run: |
-          brew install sbcl git
-          # See the Linux job: a linkable runtime has to be built from source. Homebrew's
-          # sbcl is only the cross-compilation host, and its version must be close to the
-          # one being built -- building the old sbcl-2.2.4 with a current host fails in
-          # make-host-1 with "undefined variable: SB-VM::END".
-          git clone --branch sbcl-$SBCL_VERSION https://git.code.sf.net/p/sbcl/sbcl /tmp/sbcl
-          cd /tmp/sbcl && sudo sh make.sh --with-sb-linkable-runtime && sudo sh make-shared-library.sh
-          brew remove -f sbcl
-          sudo sh install.sh
-          sudo mkdir -p /usr/local/lib
-          sudo cp src/runtime/libsbcl.so /usr/local/lib/libsbcl.so
-
-          brew install wget
-          if [ ! -f ~/quicklisp/setup.lisp ]; then
-            wget -P /tmp/ 'https://beta.quicklisp.org/quicklisp.lisp'
-            sbcl --noinform --non-interactive --load /tmp/quicklisp.lisp --eval "(quicklisp-quickstart:install :dist-url \"http://beta.quicklisp.org/dist/quicklisp/$QUICKLISP_VERSION/distinfo.txt\")"
-            sbcl --noinform --non-interactive --load ~/quicklisp/setup.lisp --eval '(ql-util:without-prompting (ql:add-to-init-file))'
-          fi
-          echo "#+quicklisp(push (truename \"$GITHUB_WORKSPACE\") ql:*local-project-directories*)" >> ~/.sbclrc
-          rm -f /tmp/quicklisp.lisp
-          cat ~/.sbclrc
+          brew install sbcl git wget
+          "$GITHUB_WORKSPACE/libquil/scripts/install-sbcl.sh"
 
       - name: Pull Lisp dependencies
-        run: |
-          git clone https://github.com/quil-lang/quilc.git $GITHUB_WORKSPACE/quilc && cd $GITHUB_WORKSPACE/quilc && git checkout 3d83b665b3addc33be2f696b1cdebc0c4c5a04f9
-          git clone https://github.com/quil-lang/qvm.git $GITHUB_WORKSPACE/qvm && cd $GITHUB_WORKSPACE/qvm && git checkout 4617625cb6053b1adfd3f7aea9cd2be328b225f6
-          git clone https://github.com/quil-lang/magicl.git $GITHUB_WORKSPACE/magicl
-          git clone https://github.com/stylewarning/cl-permutation $GITHUB_WORKSPACE/cl-permutation
-          git clone $SBCL_LIBRARIAN_REPO $GITHUB_WORKSPACE/sbcl-librarian && cd $GITHUB_WORKSPACE/sbcl-librarian && git checkout $SBCL_LIBRARIAN_REF
+        run: "$GITHUB_WORKSPACE/libquil/scripts/clone-lisp-deps.sh"
 
       - name: Install quilc dependencies
         run: |
@@ -223,4 +187,3 @@ jobs:
           # A directory (not a glob): upload-artifact v4 preserves structure
           # relative to it, keeping the libquil/ prefix the release job unzips.
           path: ${{ github.workspace }}/artifacts
-

@@ -23,9 +23,10 @@ These libraries are required by `libquil`:
 - `libffi` for cross-language execution
 
 `magicl` loads `BLAS` and `LAPACK` at runtime under their unversioned names,
-`libblas.so` and `liblapack.so` (`.dylib` on macOS). Distributions ship those names in
-their development packages, so installing only a runtime package such as Debian's
-`libblas3` — which provides `libblas.so.3` and no unversioned symlink — is not enough.
+`libblas.so` and `liblapack.so` (`.dylib` on macOS). Those names come from the
+*development* packages, so the `-dev` packages have to be installed — a runtime-only
+package such as Debian's `libblas3` provides `libblas.so.3` and no unversioned
+symlink, which is not enough.
 
 On systems which use `apt` to install packages (e.g. Ubuntu), these libraries can be installed with the command
 
@@ -48,23 +49,35 @@ brew install openblas libffi
 
 A script is provided to automate installation of the library. It will detect the host operating system and install the library to an appropriate location. A version identifier can be provided to install a particular version of the library. If no version is provided, the latest version of the library will be installed.
 
-> Note: the installer script requires `sudo` to install the library into the system.
+> Note: the installer script must be run as root; it installs the library into `/usr/local`.
 
-> Note: on macOS, `sudo` is also used to mark the library files as trusted. The files themselves are not signed and macOS will, by default, flag them as insecure.
+> Note: on macOS, root is also needed to mark the library files as trusted. The files themselves are not signed and macOS will, by default, flag them as insecure.
 
 Run the following command
 
 ```
-curl https://raw.githubusercontent.com/rigetti/libquil/main/install.sh | bash
+curl https://raw.githubusercontent.com/rigetti/libquil/main/install.sh | sudo bash
 ```
 
 If you would like to install a particular version of the library, run the following command
 
 ```
-curl https://raw.githubusercontent.com/rigetti/libquil/main/install.sh | bash -s <version-identifier>
+curl https://raw.githubusercontent.com/rigetti/libquil/main/install.sh | sudo bash -s <version-identifier>
 ```
 
 replacing `<version-identifier>` with the desired version, e.g. `0.3.0`.
+
+By default the installer checks for the libraries above and stops if any are
+missing, leaving it to you to install them. Pass `--install-deps` to have it
+install them for you with `apt` or Homebrew, skipping any that are already
+present:
+
+```
+curl https://raw.githubusercontent.com/rigetti/libquil/main/install.sh | sudo bash -s -- --install-deps
+```
+
+It requires `apt` on Linux and Homebrew on macOS, and fails if neither is
+available. `install.sh --help` lists the options.
 
 ## Manual installation
 
@@ -72,9 +85,9 @@ If you would like to manually install the library (for example in the case where
 
 ## Building from source
 
-Building requires an SBCL with a *linkable runtime* (`libsbcl.so`). Neither
-`make.sh` nor any package manager produces one — Homebrew's `sbcl` bottle, for
-instance, does not — so SBCL has to be built from source:
+Building requires an SBCL with a *linkable runtime* (`libsbcl.so`). `make.sh` does
+not build one by default, and the packages we have checked — Homebrew's `sbcl`
+bottle and Ubuntu's `sbcl` — do not ship one, so SBCL has to be built from source:
 
 ```bash
 sh make.sh --with-sb-linkable-runtime && sh make-shared-library.sh && sh install.sh
@@ -121,14 +134,19 @@ during compilation. Install OpenBLAS (`brew install openblas`) and ensure
 
 # C API Reference
 
-## Libquil functions and types
+These come from `sbcl_librarian_err.h`, which is installed alongside `libquil.h`.
 
-- `libquil_error_t`
-  Enum which indicates whether a function call was successful (`LIBQUIL_ERROR_SUCCESS`) or not (`LIBQUIL_ERROR_FAIL`). Most functions will have this as their return type.
-- `libquil_error_t libquil_error(char** error_msg)`
-  Used to retrieve the last error message from libquil.
+- `lisp_err_t`
+  Enum which indicates whether a function call was successful (`LISP_ERR_SUCCESS`) or not (`LISP_ERR_FAILURE`, `LISP_ERR_BUG`, `LISP_ERR_FATAL`). Most functions will have this as their return type.
+- `lisp_err_t get_error_message(char** error_msg)`
+  Used to retrieve the last error message.
 
-  When any error is encountered by libquil, it will be stored in memory. A subsequent call to `libquil_error` will return that error message. After calling `libquil_error`, the error is cleared from memory such that immediately calling `libquil_error` after a previous call will return an empty string (indicating no errors since the previous error).
+  When any error is encountered, it will be stored in memory. A subsequent call to `get_error_message` will return that error message. After calling `get_error_message`, the error is cleared from memory such that immediately calling `get_error_message` after a previous call will return an empty string (indicating no errors since the previous error).
+- `lisp_err_t enable_backtrace(int enabled)`
+  Turns backtrace capture on the error message on or off.
+
+> Note: this replaces the pre-0.4 `libquil_error_t` / `libquil_error()` API. See
+> [REARCHITECTURE.md](REARCHITECTURE.md) (D2) for why.
 
 ## Quilc documentation
 
@@ -157,32 +175,32 @@ during compilation. Install OpenBLAS (`brew install openblas`) and ensure
 
 ### Functions
 
-- `libquil_error quilc_get_version_info(quilc_version_info *version_info)`
+- `lisp_err_t quilc_get_version_info(quilc_version_info *version_info)`
   Allocates a `quilc_version_info` object and stores the pointer to it in `version_info`
 
   See [examples/quilc/version.c](examples/quilc/version.c)
 
-- `libquil_error quilc_version_info_version(quilc_version_info version_info, char** version)`
+- `lisp_err_t quilc_version_info_version(quilc_version_info version_info, char** version)`
   Allocates memory which indicates the version string of Quilc and stores the pointer to it in `version`
 
   See [examples/quilc/version.c](examples/quilc/version.c)
 
-- `libquil_error quilc_version_info_githash(quilc_version_info version_info, char** githash)`
+- `lisp_err_t quilc_version_info_githash(quilc_version_info version_info, char** githash)`
   Allocates memory which indicates the githash string of Quilc and stores the pointer to it in `version`
 
   See [examples/quilc/version.c](examples/quilc/version.c)
 
-- `libquil_error_t quilc_parse_quil(char* program, quil_program *result)`
+- `lisp_err_t quilc_parse_quil(char* program, quil_program *result)`
   Parses the `program` string and stores it in a `quil_program`
-- `libquil_error_t quilc_print_program(quil_program program)`
+- `lisp_err_t quilc_print_program(quil_program program)`
   Prints the `program` to stdout
-- `libquil_error_t quilc_program_string(quil_program program, char** result)`
+- `lisp_err_t quilc_program_string(quil_program program, char** result)`
   Allocates and populates a `char*` which is the given `program`'s string representation
-- `libquil_error_t quilc_compile_quil(quil_program program, chip_specification chip_spec, quil_program* compiled_program)`
+- `lisp_err_t quilc_compile_quil(quil_program program, chip_specification chip_spec, quil_program* compiled_program)`
   Compiles the `program` for the provided chip specification and stores it in a `quil_program`
-- `libquil_error_t quilc_compile_protoquil(quil_program program, chip_specification chip_spec, quil_program* compiled_program)`
+- `lisp_err_t quilc_compile_protoquil(quil_program program, chip_specification chip_spec, quil_program* compiled_program)`
   Compiles the (protoquil) `program` for the provided chip specification and stores it in a `quil_program`
-- `libquil_error_t quilc_conjugate_pauli_by_clifford(void* pauli_indices, int pauli_indices_len, void* pauli_terms, int pauli_terms_len, quil_program clifford, void* phase, void* pauli)`
+- `lisp_err_t quilc_conjugate_pauli_by_clifford(void* pauli_indices, int pauli_indices_len, void* pauli_terms, int pauli_terms_len, quil_program clifford, void* phase, void* pauli)`
   Conjugates a Pauli operator by a Clifford operator
 
   After having called `quilc_conjugate_pauli_by_clifford`:
@@ -190,7 +208,7 @@ during compilation. Install OpenBLAS (`brew install openblas`) and ensure
   - `phase` will be the encoded global phase factor
   - `pauli` will be a string description of the resulting encoded Pauli operator
 
-- `libquil_error_t quilc_generate_rb_sequence(int depth, int qubits, void* gateset_ptr, int gateset_len, int seed, void* interleaver, void* results_ptr, void* result_lens_ptr)`
+- `lisp_err_t quilc_generate_rb_sequence(int depth, int qubits, void* gateset_ptr, int gateset_len, int seed, void* interleaver, void* results_ptr, void* result_lens_ptr)`
   Generates a randomized benchmarking sequence
 
   After having called `quilc_generate_rb_sequence`:
@@ -200,12 +218,12 @@ during compilation. Install OpenBLAS (`brew install openblas`) and ensure
 
   See [examples/quilc/generate-rb-sequence.c](examples/quilc/generate-rb-sequence.c)
 
-- `libquil_error_t quilc_build_nq_linear_chip(int n, chip_specification* chip_spec)`
+- `lisp_err_t quilc_build_nq_linear_chip(int n, chip_specification* chip_spec)`
   Builds a linearly-connected `n`-qubit chip specification and stores it in `chip_spec`
-- `libquil_error_t quilc_chip_spec_from_isa_descriptor(char* isa_json, chip_specification* chip_spec)`
+- `lisp_err_t quilc_chip_spec_from_isa_descriptor(char* isa_json, chip_specification* chip_spec)`
   Builds an arbitrary chip specification using the JSON-encoded ISA description
 
-- `libquil_error_t quilc_program_memory_type(quil_program program, char* region_name, program_memory_type* region_type)`
+- `lisp_err_t quilc_program_memory_type(quil_program program, char* region_name, program_memory_type* region_type)`
   Returns the `quilc_program_memory_type` for the given memory region
 
 ## QVM documentation
@@ -214,67 +232,67 @@ during compilation. Install OpenBLAS (`brew install openblas`) and ensure
 
 - `qvm_multishot_addresses`
   An opaque pointer to a QVM multishot addresses object
-- `libquil_error_t qvm_multishot_result`
+- `lisp_err_t qvm_multishot_result`
   An opaque pointer to a QVM multishot result object
-- `libquil_error_t qvm_version_info`
+- `lisp_err_t qvm_version_info`
   An opaque pointer to a QVM version info object
 
 ### Functions
 
-- `libquil_error_t qvm_get_version_info(qvm_version_info* version_info)`
+- `lisp_err_t qvm_get_version_info(qvm_version_info* version_info)`
   Get a new `qvm_version_info`
-- `libquil_error_t qvm_version_info_version(qvm_version_info version_info, char** version)`
+- `lisp_err_t qvm_version_info_version(qvm_version_info version_info, char** version)`
   Populate a string at `*version` which has the QVM version
-- `libquil_error_t qvm_version_info_githash(qvm_version_info version_info, char** version)`
+- `lisp_err_t qvm_version_info_githash(qvm_version_info version_info, char** version)`
   Populate a string at `*githash` which has the QVM githash
-- `libquil_error_t qvm_multishot_addresses_new(qvm_multishot_addresses* addresses)`
+- `lisp_err_t qvm_multishot_addresses_new(qvm_multishot_addresses* addresses)`
   Allocate memory for the `qvm_multishot_addresses` object
-- `libquil_error_t qvm_multishot_addresses_set(qvm_multishot_addresses addresses, char* name, void* indices, int len)`
+- `lisp_err_t qvm_multishot_addresses_set(qvm_multishot_addresses addresses, char* name, void* indices, int len)`
   Set the indices of a memory region which should be collected when using `qvm_multishot`.
 
   For example, if your register was named `ro` and you wanted to get indices 0 and 2, you would provide `"ro"` for `name` and `{0, 2}` for `indices`. (`len` is the length of `indices`.)
 
-- `libquil_error_t qvm_multishot_addresses_get_all(qvm_multishot_addresses addresses, char* name, int shot_index, void\*\* results, int* results_len)
+- `lisp_err_t qvm_multishot_addresses_get_all(qvm_multishot_addresses addresses, char* name, int shot_index, void\*\* results, int* results_len)
   Request all results for the given memory address.
 
   On return, `*results` will be an array of length `results_len`. The specific data type contained in the array is to be interpreted by the caller.
 
-- `libquil_error_t qvm_multishot(quil_program program, qvm_multishot_addresses addresses, int trials, double* gate_noise, double* measurement_noise, qvm_multishot_result *result)`
+- `lisp_err_t qvm_multishot(quil_program program, qvm_multishot_addresses addresses, int trials, double* gate_noise, double* measurement_noise, qvm_multishot_result *result)`
   Execute `program` on the QVM `trials`-number of times, collecting the `addresses` into `result`.
 
   `gate_noise` and `measurement_noise` are length-3 arrays which affect gate execution and measurement respectively. One or both can be `NULL` which indicates no noise is to be applied.
 
   See [examples/qvm/multishot.c](examples/qvm/multishot.c)
 
-- `libquil_error_t qvm_multishot_result_get(qvm_multishot_result qvm_result, char* region_name, int region_index, void* result)`
+- `lisp_err_t qvm_multishot_result_get(qvm_multishot_result qvm_result, char* region_name, int region_index, void* result)`
   Get the measurement results for `region_index` in `region_name`, storing the data in the pre-allocated `result`
 
   `result` should be a pointer to memory which has been allocated to store `N` integers, where `N` is the `trials` value used for `qvm_multishot`.
 
   See [examples/qvm/multishot.c](examples/qvm/multishot.c)
 
-- `libquil_error_t qvm_multishot_measure(quil_program program, void* qubits, int n_qubits, int trials, void* result)`
+- `lisp_err_t qvm_multishot_measure(quil_program program, void* qubits, int n_qubits, int trials, void* result)`
   Execute `program` on the QVM `trials`-number of times, storing measurement results for the specified `qubits` into `result`
 
   `result` should be a pointer to memory which has been allocated to store `n_qubits * trials` integers. This memory should be interpreted as the two-dimensional array whose outer dimension is `trials` and whose inner dimension is `n_qubits`.
 
   See [examples/qvm/multishot-measure.c](examples/qvm/multishot-measure.c)
 
-- `libquil_error_t qvm_expectation(quil_program state_prep, void* operators, int n_operators, void* result)`
+- `lisp_err_t qvm_expectation(quil_program state_prep, void* operators, int n_operators, void* result)`
   Calculate the expectation value `<O|P|O>` where `P` is the provided state preparation program `state_prep` and `O` is an operator, for each `O` in `operators`.
 
   `result` should be a pointer to memory that has been allocated to store `n_operators` double-precision floats.
 
   See [examples/qvm/expectation.c](examples/qvm/expectation.c)
 
-- `libquil_error_t qvm_wavefunction(quil_program program, void* result)`
+- `lisp_err_t qvm_wavefunction(quil_program program, void* result)`
   Execute `program` on the QVM and return the associated wavefunction
 
   `result` should be a pointer to memory that has been allocated to store `2 * N_q^2` double-precision floats where `N_q` is the number of qubits used in the program. The factor of 2 is here to account for the fact that the wavefunction is a complex-valued vector, thus to represent it in C we need two values: one for the real part and one for the imaginary part. `result` can be interpreted as a two-dimensional array whose outer dimension (size `N_q^2`) is the wavefunction vector index, and whose inner dimension (size `2`) is the pair of values making up the complex value.
 
   See [examples/qvm/wavefunction.c](examples/qvm/wavefunction.c)
 
-- `libquil_error_t qvm_probabilities(quil_program program, void* results_ptr)`
+- `lisp_err_t qvm_probabilities(quil_program program, void* results_ptr)`
   Execute `program` on the QVM and return the wavefunction probabilities
 
   `result` should be a pointer to memory that has been allocated to store `N_q^2` double-precision floats where `N_q` is the number of qubits used in the program. Each index `i` in `result` is the probability of finding the wavefunction in the `|i>` state.

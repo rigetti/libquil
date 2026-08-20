@@ -33,8 +33,9 @@ SBCL_LIBRARIAN_DIR := $(shell $(SBCL) --noinform --non-interactive \
     --eval '(require :asdf)' \
     --eval '(princ (namestring (asdf:system-source-directory "sbcl-librarian")))' 2>/dev/null)
 
-# The linkable SBCL runtime. `make.sh` does not build one and package managers do
-# not ship it, so it comes from an SBCL source tree built with
+# The linkable SBCL runtime. `make.sh` does not build one by default, and neither
+# Homebrew's nor Ubuntu's sbcl package ships it, so it comes from a source tree
+# built with
 # `make-shared-library.sh`; `install.sh` puts it in SBCL's home directory. Note
 # that SBCL names it libsbcl.so on every platform, including macOS.
 SBCL_CORE_DIR := $(dir $(shell $(SBCL) --noinform --no-sysinit --no-userinit --non-interactive \
@@ -62,8 +63,9 @@ $(CORE) libquil.c libquil.h $(RUNTIME_DIR)/sbcl_librarian.c: src/libquil.lisp sr
 	# was compiled to look for.
 	mv libquil_core.core $(CORE)
 
-# The runtime is told to load libquil.core rather than the stock
-# sbcl_librarian.core, so that libquil's image is what comes up.
+# SBCL_LIBRARIAN_CORE_NAME is the core name the runtime is compiled to look for
+# next to itself. It defaults to sbcl_librarian.core; libquil never builds a core
+# by that name, so the runtime is pointed at libquil.core instead.
 $(RUNTIME_LIB): $(RUNTIME_DIR)/sbcl_librarian.c
 ifeq ($(LIBSBCL),)
 	@echo "error: no linkable SBCL runtime (libsbcl.so) found."                        >&2
