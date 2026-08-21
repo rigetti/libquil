@@ -40,10 +40,10 @@ On systems which use `brew` to install packages (e.g macOS), these libraries can
 brew install openblas libffi
 ```
 
-> Note: do not install Homebrew's `lapack` on Apple Silicon. `magicl` prefers it
-> over every other backend, and it computes incorrect eigenvectors there, which
-> surfaces as `Could not find diagonalizer for matrix ... after 16 attempts`
-> during compilation.
+> Note: OpenBLAS is what supplies BLAS and LAPACK here, and `magicl` selects it in
+> preference to anything else. Homebrew's reference `lapack` no longer has to be
+> avoided, but it is not a substitute: its current arm64 bottle computes incorrect
+> eigenvectors, and Accelerate is missing routines `quilc` needs.
 
 ## Automated installation
 
@@ -127,10 +127,15 @@ See [REARCHITECTURE.md](REARCHITECTURE.md) for how this fits together and why.
 
 ### Linear algebra backend on aarch64 macOS
 
-Homebrew's reference `lapack` computes incorrect eigenvectors on aarch64, which
-surfaces as `Could not find diagonalizer for matrix ... after 16 attempts`
-during compilation. Install OpenBLAS (`brew install openblas`) and ensure
-`magicl` loads it in preference to `lapack`.
+Install OpenBLAS (`brew install openblas`). `magicl` prefers it over the
+alternatives, and checks at load time that whatever it selected is complete and
+computes correctly, so a bad backend fails the build with a message naming the
+library rather than producing an artifact that is silently wrong.
+
+The alternatives are both unusable on aarch64: Homebrew's reference `lapack` bottle
+returns incorrect eigenvectors for complex input
+([homebrew-core#300084](https://github.com/Homebrew/homebrew-core/issues/300084)),
+and Accelerate's legacy LAPACK is missing routines `quilc` calls.
 
 # C API Reference
 

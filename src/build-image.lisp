@@ -35,27 +35,18 @@
         (funcall (read-from-string "quicklisp:quickload") system)
         (asdf:load-system system))))
 
-;; Load OpenBLAS before anything else pulls in a BLAS/LAPACK, so that its symbols
-;; are the ones that resolve.
+;; The BLAS/LAPACK backend is magicl's to choose. It searches for OpenBLAS first,
+;; and refuses to load a backend that is missing routines quilc calls or that
+;; computes incorrect eigenvectors, so a bad one fails this build with a message
+;; naming the library rather than producing an artifact that is quietly wrong.
 ;;
-;; magicl looks for Homebrew's reference LAPACK first and falls back to a bare
-;; liblapack.dylib, which on macOS is Accelerate's. Neither is usable here: the
-;; reference build returns incorrect eigenvectors on arm64 ("Could not find
-;; diagonalizer for matrix ... after 16 attempts"), and Accelerate's LAPACK predates
-;; 3.3, so routines quilc needs are simply missing ("The alien function zuncsd_ is
-;; undefined"). OpenBLAS is correct and complete on both counts.
+;; libquil used to force the choice here, by loading OpenBLAS before magicl could
+;; look. That is no longer necessary; see REARCHITECTURE.md D7. If magicl is ever
+;; pinned back to a version without the search entry, MAGICL_LAPACK_PATH set at
+;; build time does the same job.
 ;;
-;; SBCL records loaded shared objects in the core and reloads them at startup, so
-;; this choice is baked into the artifact rather than left to the loader.
-#+darwin
-(let ((openblas (find-if #'probe-file
-                         '("/opt/homebrew/opt/openblas/lib/libopenblas.dylib"
-                           "/usr/local/opt/openblas/lib/libopenblas.dylib"))))
-  (if openblas
-      (sb-alien:load-shared-object openblas)
-      (warn "OpenBLAS not found; magicl may load a BLAS/LAPACK that miscomputes ~
-             eigenvectors or lacks routines quilc needs. Install it with ~
-             `brew install openblas'.")))
+;; Whatever magicl loads is recorded in the core by SBCL and reopened at startup,
+;; so the choice is still baked into the artifact rather than left to the loader.
 
 (load-system '#:sbcl-librarian)
 (load-system '#:libquil)

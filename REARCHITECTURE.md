@@ -139,24 +139,43 @@ subtypes of `error` -- `invalid-instruction-condition` has no supertype at all -
 and with a `cl:error` handler those escape into the debugger and hang the calling
 process. libquil's original error map bound `T` for the same reason.
 
-### D7: Choose the BLAS/LAPACK backend at build time, not load time
+### D7: Let magicl choose the BLAS/LAPACK backend, and fail loudly if it chooses badly
 
-`src/build-image.lisp` loads OpenBLAS before anything else can pull in a
-BLAS/LAPACK. magicl otherwise picks one by searching: Homebrew's reference LAPACK
-first, then a bare `liblapack.dylib`. On arm64 macOS both are wrong, in different
-ways:
+**Superseded.** libquil originally forced the choice itself, and no longer does; the
+fix moved upstream, which is where it belonged.
 
-- Homebrew's reference LAPACK returns incorrect eigenvectors, which surfaces as
-  `Could not find diagonalizer for matrix ... after 16 attempts`. (Confirmed
-  directly: `eig` violated the trace invariant by ~5.8 for n>=3, while OpenBLAS
-  agreed to ~1e-15.)
-- A bare `liblapack.dylib` resolves to Accelerate's, which predates LAPACK 3.3 and
-  is missing routines quilc calls: `The alien function "zuncsd_" is undefined`.
+The problem was that magicl picked a backend on Darwin by searching Homebrew's
+reference LAPACK first, then a bare `liblapack.dylib`, with OpenBLAS not in the list
+at all. On arm64 macOS both candidates are wrong, in different ways:
 
-Because SBCL records loaded shared objects in the core and reloads them at startup,
-loading OpenBLAS at build time bakes the choice into the artifact rather than
-leaving it to whatever the loader finds on the user's machine. Patching magicl was
-the alternative; this keeps the fix inside libquil.
+- Homebrew's reference LAPACK, as bottled, returns incorrect eigenvectors for
+  complex input at n >= 3, which surfaces as `Could not find diagonalizer for
+  matrix ... after 16 attempts`. Not a defect in reference LAPACK: a gfortran
+  miscompile of `zlarf1f.f`, new in LAPACK 3.12.1 (GCC PR122408,
+  Reference-LAPACK#1160, both fixed; Homebrew/homebrew-core#300084 tracks the
+  un-rebuilt bottle).
+- A bare `liblapack.dylib` resolves to Accelerate's legacy interface, which is
+  LAPACK 3.2.1 and lacks routines quilc calls: `The alien function "zuncsd_" is
+  undefined`. That one is permanent, not a packaging accident.
+
+So `src/build-image.lisp` used to `load-shared-object` OpenBLAS before magicl could
+look, and CI additionally uninstalled Homebrew's `lapack` and symlinked OpenBLAS
+over `liblapack.dylib`. Both were workarounds for magicl having no way to express
+"use OpenBLAS".
+
+magicl now searches for OpenBLAS by name, accepts `MAGICL_LAPACK_PATH`, and checks
+at load time that the backend it selected is complete and computes correctly
+(quil-lang/magicl#221, PR #222; libquil tracks `rigetti/magicl` at
+`backend-selection-and-validation` until that is merged and released). The preload
+and the symlinks are gone. A bad backend now fails the build with a message naming
+the library, instead of yielding an artifact that is quietly wrong.
+
+What has not changed is the property that made this a build-time decision: SBCL
+records loaded shared objects in the core and reopens them at startup, so whatever
+magicl selects during the build is baked into the artifact rather than left to
+whatever the loader finds on the user's machine. Which is also why the installed
+artifact still needs OpenBLAS present at the path recorded at build time — see
+`install.sh`'s preflight check.
 
 ### D8: Keep shipping the SBCL runtime as `libsbcl.so`, even on macOS
 

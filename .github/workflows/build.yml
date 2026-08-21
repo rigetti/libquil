@@ -20,6 +20,15 @@ env:
   # https://github.com/quil-lang/sbcl-librarian/pull/91
   SBCL_LIBRARIAN_REPO: "https://github.com/rigetti/sbcl-librarian.git"
   SBCL_LIBRARIAN_REF: "fix-secondary-system-bundles"
+  # magicl selects a BLAS/LAPACK by searching a fixed list of paths. Until it
+  # knows about OpenBLAS, that search picks a backend that is wrong on arm64 and
+  # cannot be redirected without hacks -- so libquil had to preload OpenBLAS and
+  # symlink it over liblapack.dylib. This branch adds OpenBLAS to the search,
+  # a MAGICL_LAPACK_PATH override, and a startup check on what got loaded.
+  # TODO(#60-adjacent): move back to quil-lang/magicl once
+  # https://github.com/quil-lang/magicl/pull/222 is merged and released.
+  MAGICL_REPO: "https://github.com/rigetti/magicl.git"
+  MAGICL_REF: "backend-selection-and-validation"
   # The Quicklisp dist supplying the Lisp dependencies.
   QUICKLISP_VERSION: "2026-01-01"
 
@@ -145,17 +154,12 @@ jobs:
         run: "$GITHUB_WORKSPACE/libquil/scripts/clone-lisp-deps.sh"
 
       - name: Install quilc dependencies
-        run: |
-          # Deliberately not installing lapack. magicl prefers Homebrew's reference
-          # LAPACK over everything else, and on arm64 it computes incorrect
-          # eigenvectors -- compilation then fails with "Could not find diagonalizer
-          # for matrix ... after 16 attempts". With it absent, magicl falls through to
-          # a bare liblapack.dylib, which these symlinks point at OpenBLAS.
-          brew uninstall --ignore-dependencies lapack || true
-          brew install openblas libffi gfortran
-          sudo mkdir -p /usr/local/lib
-          sudo ln -sf "$(brew --prefix openblas)/lib/libopenblas.dylib" /usr/local/lib/liblapack.dylib
-          sudo ln -sf "$(brew --prefix openblas)/lib/libopenblas.dylib" /usr/local/lib/libblas.dylib
+        # magicl now finds OpenBLAS by name and refuses to start on a backend that
+        # is incomplete or computes incorrectly, so there is nothing to arrange
+        # here beyond installing it. Homebrew's reference `lapack' no longer has to
+        # be uninstalled, and OpenBLAS no longer has to be symlinked over
+        # liblapack.dylib, because magicl now prefers it outright.
+        run: brew install openblas libffi gfortran
 
       - name: Build libquil.dylib
         run: |
