@@ -12,29 +12,24 @@ env:
   # against glibc 2.38 and will not run on 22.04. 2.5.0's binary needs only glibc
   # 2.34 and is recent enough to build 2.6.7.
   SBCL_BOOTSTRAP_VERSION: "2.5.0"
-  # libquil depends on three sbcl-librarian fixes
-  # (secondary-system FASL bundles, library prefix, configurable core name).
-  # They live on a branch of Rigetti's fork;
-  # TODO(#60):
-  # use a released quil-lang/sbcl-librarian once these fixes are released:
-  # https://github.com/quil-lang/sbcl-librarian/pull/91
-  SBCL_LIBRARIAN_REPO: "https://github.com/rigetti/sbcl-librarian.git"
-  SBCL_LIBRARIAN_REF: "fix-secondary-system-bundles"
+  # libquil depends on three sbcl-librarian fixes (secondary-system FASL bundles,
+  # library prefix, configurable core name), which live on a branch of Rigetti's
+  # fork and are proposed upstream as quil-lang/sbcl-librarian#91.
+  SBCL_LIBRARIAN_REPO: "https://github.com/rigetti/sbcl-librarian.git"  # TODO(rigetti/libquil#60)
+  SBCL_LIBRARIAN_REF: "fix-secondary-system-bundles"                    # TODO(rigetti/libquil#60)
   # magicl selects a BLAS/LAPACK by searching a fixed list of paths. Until it
   # knows about OpenBLAS, that search picks a backend that is wrong on arm64 and
   # cannot be redirected without hacks -- so libquil had to preload OpenBLAS and
-  # symlink it over liblapack.dylib. This branch adds OpenBLAS to the search,
-  # a MAGICL_LAPACK_PATH override, and a startup check on what got loaded.
-  # TODO(#60-adjacent): move back to quil-lang/magicl once
-  # https://github.com/quil-lang/magicl/pull/222 is merged and released.
-  MAGICL_REPO: "https://github.com/rigetti/magicl.git"
-  MAGICL_REF: "backend-selection-and-validation"
+  # symlink it over liblapack.dylib. This branch adds OpenBLAS to the search, a
+  # MAGICL_LAPACK_PATH override, and a startup check on what got loaded; it is
+  # proposed upstream as quil-lang/magicl#222.
+  MAGICL_REPO: "https://github.com/rigetti/magicl.git"                  # TODO(rigetti/libquil#62)
+  MAGICL_REF: "backend-selection-and-validation"                        # TODO(rigetti/libquil#62)
   # PROCESS-PROTOQUIL lives in quilc's *application*, which libquil does not
   # depend on, so libquil vendored a copy. quil-lang/quilc#933 moves it into the
   # library and exports it, which is where it belongs.
-  # TODO: move back to a quil-lang/quilc commit once #933 is merged.
-  QUILC_REPO: "https://github.com/rigetti/quilc.git"
-  QUILC_REF: "896-protoquil-transform"
+  QUILC_REPO: "https://github.com/rigetti/quilc.git"                    # TODO(rigetti/libquil#61)
+  QUILC_REF: "896-protoquil-transform"                                  # TODO(rigetti/libquil#61)
   # The Quicklisp dist supplying the Lisp dependencies.
   QUICKLISP_VERSION: "2026-01-01"
 
