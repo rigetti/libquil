@@ -14,11 +14,12 @@ set -euo pipefail
 : "${SBCL_LIBRARIAN_REF:?SBCL_LIBRARIAN_REF must be set}"
 : "${MAGICL_REPO:?MAGICL_REPO must be set}"
 : "${MAGICL_REF:?MAGICL_REF must be set}"
+: "${QUILC_REPO:?QUILC_REPO must be set}"
+: "${QUILC_REF:?QUILC_REF must be set}"
 
-QUILC_REF="3d83b665b3addc33be2f696b1cdebc0c4c5a04f9"
 QVM_REF="4617625cb6053b1adfd3f7aea9cd2be328b225f6"
 
-git clone https://github.com/quil-lang/quilc.git "${GITHUB_WORKSPACE}/quilc"
+git clone "${QUILC_REPO}" "${GITHUB_WORKSPACE}/quilc"
 git -C "${GITHUB_WORKSPACE}/quilc" checkout "${QUILC_REF}"
 
 git clone https://github.com/quil-lang/qvm.git "${GITHUB_WORKSPACE}/qvm"

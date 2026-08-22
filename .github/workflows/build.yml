@@ -29,6 +29,12 @@ env:
   # https://github.com/quil-lang/magicl/pull/222 is merged and released.
   MAGICL_REPO: "https://github.com/rigetti/magicl.git"
   MAGICL_REF: "backend-selection-and-validation"
+  # PROCESS-PROTOQUIL lives in quilc's *application*, which libquil does not
+  # depend on, so libquil vendored a copy. quil-lang/quilc#933 moves it into the
+  # library and exports it, which is where it belongs.
+  # TODO: move back to a quil-lang/quilc commit once #933 is merged.
+  QUILC_REPO: "https://github.com/rigetti/quilc.git"
+  QUILC_REF: "896-protoquil-transform"
   # The Quicklisp dist supplying the Lisp dependencies.
   QUICKLISP_VERSION: "2026-01-01"
 

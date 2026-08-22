@@ -81,5 +81,5 @@
       (let ((handle (sbcl-librarian::make-handle metadata)))
         (setf (sb-alien:deref metadata-ptr)
               handle)))
-    (cl-quil.frontend::transform 'process-protoquil compiled-program)
+    (cl-quil.frontend::transform 'cl-quil.frontend:process-protoquil compiled-program)
     compiled-program))
