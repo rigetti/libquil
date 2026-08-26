@@ -1,3 +1,9 @@
+## 0.4.1 (2026-08-26)
+
+### Fixes
+
+- stop a piped install.sh from silently skipping the install
+
 ## 0.4.0 (2026-08-26)
 
 ### Breaking Changes
