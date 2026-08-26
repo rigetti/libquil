@@ -44,9 +44,12 @@ On macOS, OpenBLAS supplies both `BLAS` and `LAPACK`.
 
 A script is provided to automate installation of the library. It will detect the host operating system and install the library to an appropriate location. A version identifier can be provided to install a particular version of the library. If no version is provided, the latest version of the library will be installed.
 
-> Note: the installer script must be run as root; it installs the library into `/usr/local`.
+> Note: by default the library is installed into `/usr/local`, which needs root. Pass
+> `--prefix` to install somewhere you can write instead — see [Installing without
+> root](#installing-without-root).
 
-> Note: on macOS, root is also needed to mark the library files as trusted. The files themselves are not signed and macOS will, by default, flag them as insecure.
+> Note: on macOS the installer also marks the library files as trusted. The files
+> themselves are not signed and macOS will, by default, flag them as insecure.
 
 Run the following command
 
@@ -73,6 +76,20 @@ curl https://raw.githubusercontent.com/rigetti/libquil/main/scripts/install.sh |
 
 It requires `apt` on Linux and Homebrew on macOS, and fails if neither is
 available. `install.sh --help` lists the options.
+
+### Installing without root
+
+`--prefix` chooses where the library goes, and root is needed only when that
+location is not writable:
+
+```
+curl https://raw.githubusercontent.com/rigetti/libquil/main/scripts/install.sh | bash -s -- --prefix "${HOME}/.local"
+```
+
+A prefix other than `/usr/local` is not on any default search path. The installer
+finishes by printing the variables that make it usable — `LIBQUIL_SRC_PATH` and
+`LIBQUIL_LIB_PATH` to build against it, and `DYLD_LIBRARY_PATH` (`LD_LIBRARY_PATH`
+on Linux) to run.
 
 ## Manual installation
 
@@ -128,6 +145,17 @@ Everything under `runtime/` is installed alongside the library, and
 `libquil.core` must sit next to `libsbcl_librarian` — the runtime finds its core
 relative to its own location. There is no initialization call to make: loading
 the library starts Lisp.
+
+`make install` puts them in the layout consumers expect, in the same place the
+release installer would:
+
+```bash
+make install                          # /usr/local, needs root
+make install PREFIX="${HOME}/.local"  # anywhere you can write
+```
+
+For a prefix other than `/usr/local` it prints the `LIBQUIL_SRC_PATH`,
+`LIBQUIL_LIB_PATH` and library-path variables to build and run against it.
 
 See [REARCHITECTURE.md](REARCHITECTURE.md) for how this fits together and why.
 

@@ -1,4 +1,4 @@
-.PHONY: all clean runtime
+.PHONY: all clean runtime install
 
 OS := $(shell uname -s)
 
@@ -28,6 +28,14 @@ LIBQUIL_TARGET = libquil$(SHARED_SUFFIX)
 RUNTIME_DIR := runtime
 RUNTIME_LIB := $(RUNTIME_DIR)/libsbcl_librarian$(SHARED_SUFFIX)
 CORE := $(RUNTIME_DIR)/libquil.core
+
+# Where `make install` puts things, matching the layout scripts/install.sh
+# produces for a release: everything flat in lib/, headers in include/libquil.
+# Override for a prefix you can write without sudo, e.g.
+#     make install PREFIX="$HOME/.local"
+PREFIX ?= /usr/local
+LIB_PREFIX := $(PREFIX)/lib
+INCLUDE_PREFIX := $(PREFIX)/include/libquil
 
 SBCL_LIBRARIAN_DIR := $(shell $(SBCL) --noinform --non-interactive \
     --eval '(require :asdf)' \
@@ -91,6 +99,28 @@ $(LIBQUIL_TARGET): libquil.c $(CORE) $(RUNTIME_LIB)
 	$(CC) $(SHARED_FLAGS) -fPIC -o $@ libquil.c \
 	    -I. -I$(RUNTIME_DIR) -I"$(SBCL_LIBRARIAN_DIR)lib" \
 	    -L$(RUNTIME_DIR) -lsbcl_librarian
+
+# libquil.core has to land beside libsbcl_librarian, which is why everything goes
+# in one directory rather than the runtime keeping its own: the runtime locates
+# its core relative to its own path.
+install: all
+	mkdir -p $(LIB_PREFIX) $(INCLUDE_PREFIX)
+	cp libquil.h $(RUNTIME_DIR)/sbcl_librarian.h $(RUNTIME_DIR)/sbcl_librarian_err.h \
+	    $(INCLUDE_PREFIX)
+	cp $(LIBQUIL_TARGET) $(RUNTIME_LIB) $(RUNTIME_DIR)/libsbcl.so $(CORE) $(LIB_PREFIX)
+	@echo
+	@echo "Installed to $(PREFIX)."
+ifneq ($(PREFIX),/usr/local)
+	@echo "That is not a default search path, so build against it with:"
+	@echo "    export LIBQUIL_SRC_PATH=\"$(INCLUDE_PREFIX)\""
+	@echo "    export LIBQUIL_LIB_PATH=\"$(LIB_PREFIX)\""
+	@echo "and run with:"
+ifeq ($(OS), Darwin)
+	@echo "    export DYLD_LIBRARY_PATH=\"$(LIB_PREFIX)\""
+else
+	@echo "    export LD_LIBRARY_PATH=\"$(LIB_PREFIX)\""
+endif
+endif
 
 clean:
 	rm -rf $(RUNTIME_DIR) build
