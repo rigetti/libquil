@@ -80,13 +80,10 @@ If you would like to manually install the library (for example in the case where
 
 ## Building from source
 
-Building requires an SBCL with a *linkable runtime* (`libsbcl.so`). SBCL does not
-build one by default, and the packages we have checked — Homebrew's `sbcl` bottle
-and Ubuntu's `sbcl` — do not ship one, so SBCL itself has to be built from source.
-
-`make.sh`, `make-shared-library.sh` and `install.sh` below are scripts in **SBCL's**
-source tree. SBCL's `install.sh` is not libquil's `scripts/install.sh` described
-above. Run them from a checkout of SBCL:
+Building requires an SBCL with a *linkable runtime* (`libsbcl.so`).
+SBCL does not build one by default,
+and neither Homebrew's `sbcl` bottle nor Ubuntu's `sbcl` ships one,
+so SBCL itself has to be built from source.
 
 ```bash
 git clone --branch sbcl-2.6.7 https://git.code.sf.net/p/sbcl/sbcl

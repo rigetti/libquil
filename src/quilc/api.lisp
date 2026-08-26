@@ -173,7 +173,7 @@
     quil-program
     ((program quil-program)
      (chip-spec chip-specification)
-     (metata-ptr :pointer)))
+     (metadata-ptr :pointer-out)))
    (("build_nq_linear_chip" cl-quil::build-nq-linear-chip) chip-specification ((n :int)))
    (("print_chip_spec" cl-quil::debug-print-chip-spec) :void ((chip-spec chip-specification)))
    (("parse_chip_spec_isa_json" parse-chip-spec-isa-json) chip-specification ((isa-json :string)))
@@ -198,34 +198,3 @@
      (results-ptr :pointer)
      (result-lens-ptr :pointer)))))
 
-;; Mark: this is required until SBCL-LIBRARIAN supports (:pointer :pointer) types.
-(progn
-  (sb-alien:define-alien-callable ("quilc_compile_protoquil"
-                                   quilc-compile-protoquil)
-      sb-alien:int
-      ((program (* t)) (chip-spec (* t))
-       ;; Mark: SBCL-LIBRARIAN would generate the type as (* t) but we need
-       ;; (* (* t)) (i.e a pointer to a pointer) otherwise we cannot use
-       ;; SB-ALIEN:DEREF.
-       (metata-ptr (* (* t)))
-       (sbcl-librarian::result (* (* t))))
-    (let ((program-handle (sbcl-librarian::dereference-handle program))
-          (chip-spec-handle (sbcl-librarian::dereference-handle chip-spec))
-          (metadata-ptr metata-ptr))
-      ;; Mirrors what SBCL-LIBRARIAN's DEFAULT-ERROR-MAP does for generated
-      ;; callables: record the condition where GET-ERROR-MESSAGE can find it and
-      ;; return the failure code.
-      (block error-map
-        (handler-bind ((t
-                         (lambda (condition)
-                           (setf sbcl-librarian::*error-message*
-                                 (format nil "~a" condition))
-                           (return-from error-map 1))))
-          (progn
-            (setf (sb-alien:deref sbcl-librarian::result)
-                  (sbcl-librarian::make-handle
-                   (compile-protoquil program-handle chip-spec-handle metadata-ptr)))
-            0)))))
-  (when sbcl-librarian::*initialize-callables-p*
-    (sb-alien::initialize-alien-callable-symbol
-     '("quilc_compile_protoquil" quilc-compile-protoquil))))

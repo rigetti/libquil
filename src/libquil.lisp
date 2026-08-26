@@ -34,6 +34,28 @@
 
 (sbcl-librarian:define-handle-type qvm-multishot-addresses "qvm_multishot_addresses")
 
+;;; An out-parameter: an argument the callee writes a pointer through.
+;;;
+;;; SBCL-LIBRARIAN's stock :POINTER is `void*' on the C side and `(* t)' on the
+;;; Lisp side. The latter cannot be given to SB-ALIEN:DEREF, so an API that writes
+;;; back through an argument used to have to hand-write its DEFINE-ALIEN-CALLABLE
+;;; and redefine the generated one. QUILC_COMPILE_PROTOQUIL was the only such case.
+;;;
+;;; The C spelling stays `void*' deliberately. `void**' would describe the contract
+;;; more precisely, but C does not implicitly convert `T**' to `void**' the way it
+;;; does `T*' to `void*', so every caller passing `&handle' would take an
+;;; -Wincompatible-pointer-types warning. The two spellings are the same pointer at
+;;; the ABI level, so this keeps the published header byte-identical while the Lisp
+;;; side gets a type it can dereference.
+;;;
+;;; Nothing in the type system needed changing for this -- DEFINE-TYPE is generic
+;;; over the two spellings; it merely was not exported. See
+;;; quil-lang/sbcl-librarian#91.
+(sbcl-librarian:define-type :pointer-out
+    :c-type "void*"
+    :alien-type (sb-alien:* (sb-alien:* t))
+    :python-type "POINTER(c_void_p)")
+
 ;;; Error reporting comes from SBCL-LIBRARIAN's built-in ERRORS api, which
 ;;; provides the `lisp_err_t' type, `get_error_message', and `enable_backtrace'.
 ;;; DEFINE-API always uses SBCL-LIBRARIAN's DEFAULT-ERROR-MAP, which records the

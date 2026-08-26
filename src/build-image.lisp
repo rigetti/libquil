@@ -9,31 +9,10 @@
              (probe-file quicklisp-init))
     (load quicklisp-init)))
 
-;; libquil intentionally redefines some of the alien callables that
-;; SBCL-LIBRARIAN generates, in order to give them types SBCL-LIBRARIAN cannot
-;; express yet (see the definition of quilc_compile_protoquil). SBCL signals a
-;; continuable error for that; taking the CONTINUE restart installs the new
-;; definition, which is what an interactive build does. Without this the build
-;; drops into the debugger and cannot run unattended.
-;;
-;; The definitions are ordered so that libquil's override is installed last and
-;; therefore wins; this applies equally when the systems are recompiled into FASL
-;; bundles, so the whole build runs inside the handler.
-(defmacro with-alien-redefinition-allowed (&body body)
-  `(handler-bind ((error
-                    (lambda (condition)
-                      (let ((restart (find-restart 'continue condition)))
-                        (when (and restart
-                                   (search "redefine alien callable"
-                                           (princ-to-string condition)))
-                          (invoke-restart restart))))))
-     ,@body))
-
 (defun load-system (system)
-  (with-alien-redefinition-allowed
-    (if (find-package '#:quicklisp)
-        (funcall (read-from-string "quicklisp:quickload") system)
-        (asdf:load-system system))))
+  (if (find-package '#:quicklisp)
+      (funcall (read-from-string "quicklisp:quickload") system)
+      (asdf:load-system system)))
 
 ;; The BLAS/LAPACK backend is magicl's to choose. It searches for OpenBLAS first,
 ;; and refuses to load a backend that is missing routines quilc calls or that
@@ -101,7 +80,6 @@
 ;;;
 ;;; The init function is omitted: initialization is the runtime's job, done from a
 ;;; constructor when libsbcl_librarian is loaded.
-(cl-user::with-alien-redefinition-allowed
-  (sbcl-librarian:build-bindings libquil "." :omit-init-function t)
-  (sbcl-librarian:build-bindings sbcl-librarian "runtime/" :omit-init-function t)
-  (sbcl-librarian:build-core-and-die libquil-core "."))
+(sbcl-librarian:build-bindings libquil "." :omit-init-function t)
+(sbcl-librarian:build-bindings sbcl-librarian "runtime/" :omit-init-function t)
+(sbcl-librarian:build-core-and-die libquil-core ".")
