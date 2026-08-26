@@ -101,11 +101,8 @@ jobs:
 
       - name: Package files
         run: |
-          mkdir -p $GITHUB_WORKSPACE/artifacts/libquil
-          cp $GITHUB_WORKSPACE/libquil/libquil.h $GITHUB_WORKSPACE/libquil/libquil.so $GITHUB_WORKSPACE/artifacts/libquil
-          # The runtime directory holds libsbcl_librarian, the core it loads,
-          # libsbcl itself and the runtime headers; they must ship together.
-          cp $GITHUB_WORKSPACE/libquil/runtime/* $GITHUB_WORKSPACE/artifacts/libquil
+          "$GITHUB_WORKSPACE/libquil/scripts/package-artifact.sh" \
+            "$GITHUB_WORKSPACE/libquil" "$GITHUB_WORKSPACE/artifacts"
 
       - name: Store artifact
         uses: actions/upload-artifact@v4
@@ -174,11 +171,8 @@ jobs:
 
       - name: Package files
         run: |
-          mkdir -p $GITHUB_WORKSPACE/artifacts/libquil
-          cp $GITHUB_WORKSPACE/libquil/libquil.h $GITHUB_WORKSPACE/libquil/libquil.dylib $GITHUB_WORKSPACE/artifacts/libquil
-          # The runtime directory holds libsbcl_librarian, the core it loads,
-          # libsbcl itself and the runtime headers; they must ship together.
-          cp $GITHUB_WORKSPACE/libquil/runtime/* $GITHUB_WORKSPACE/artifacts/libquil
+          "$GITHUB_WORKSPACE/libquil/scripts/package-artifact.sh" \
+            "$GITHUB_WORKSPACE/libquil" "$GITHUB_WORKSPACE/artifacts"
 
       - name: Store artifact
         uses: actions/upload-artifact@v4
