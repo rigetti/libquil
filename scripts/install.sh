@@ -121,28 +121,24 @@ install_prerequisites() {
           "Install libquil's requirements another way and re-run without --install-deps:" \
           "https://github.com/rigetti/libquil#requirements"
 
-    # Homebrew refuses to run as root, so it has to run as the invoking user.
-    # `brew --prefix` is the one subcommand it does allow as root, which is why the
-    # search paths above can call it directly.
+    # Homebrew refuses to run as root, so it runs as whoever invoked sudo.
+    # (`brew --prefix` is the one subcommand it allows as root, which is why the
+    # search paths above can call it directly.)
+    #
+    # SUDO_USER is set only when root was reached through sudo, so this guard is
+    # about not having a user to drop to -- not about Homebrew's root policy,
+    # which the line below already handles. It is close to unreachable: brew is
+    # not on root's default PATH, so a root login normally fails the check above
+    # instead. It stays because without it `set -u` would abort here with a bare
+    # "SUDO_USER: unbound variable".
     [[ -n "${SUDO_USER-}" ]] ||
-      err "--install-deps needs to run Homebrew, which refuses to run as root." \
-          "Re-run through sudo from your normal account (sudo bash install.sh --install-deps)," \
-          "or install the requirements yourself and drop --install-deps."
+      err "--install-deps needs an unprivileged user to run Homebrew as, and this is" \
+          "a root session rather than one entered through sudo." \
+          "Re-run it under sudo from your normal account, or install the requirements" \
+          "yourself and drop --install-deps."
     local brew_cmd=(sudo -u "${SUDO_USER}" brew)
 
-    # Homebrew's reference `lapack` is deliberately NOT treated as a conflict here,
-    # even though magicl prefers it over every other backend and it computes
-    # incorrect eigenvectors on arm64. A prebuilt libquil is immune: build-image.lisp
-    # loads OpenBLAS before magicl can pick a backend, and SBCL records loaded shared
-    # objects in the core and reopens them at startup, so the choice is baked into the
-    # artifact (REARCHITECTURE.md D7). Verified against a machine with lapack 3.12.1
-    # installed: the release loads OpenBLAS and never touches the lapack keg.
-    #
-    # It does matter when building libquil from source, which is why CI uninstalls it
-    # and the README says not to install it. Refusing to install a working binary over
-    # it would be wrong.
-
-    # OpenBLAS provides both BLAS and LAPACK, and is correct on arm64.
+    # OpenBLAS provides both BLAS and LAPACK.
     local missing=()
     local formula
     for formula in openblas libffi

@@ -155,11 +155,6 @@ jobs:
         run: "$GITHUB_WORKSPACE/libquil/scripts/clone-lisp-deps.sh"
 
       - name: Install quilc dependencies
-        # magicl now finds OpenBLAS by name and refuses to start on a backend that
-        # is incomplete or computes incorrectly, so there is nothing to arrange
-        # here beyond installing it. Homebrew's reference `lapack' no longer has to
-        # be uninstalled, and OpenBLAS no longer has to be symlinked over
-        # liblapack.dylib, because magicl now prefers it outright.
         run: brew install openblas libffi gfortran
 
       - name: Build libquil.dylib
