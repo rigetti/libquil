@@ -12,7 +12,7 @@ err() {
 
 usage() {
   cat <<'EOF'
-Usage: install.sh [--prefix DIR] [--install-deps] [VERSION]
+Usage: install.sh [--prefix DIR] [--from DIR] [--install-deps] [VERSION]
 
 Installs libquil into DIR/lib and DIR/include/libquil.
 
@@ -20,6 +20,10 @@ Installs libquil into DIR/lib and DIR/include/libquil.
   --prefix DIR    install here instead of /usr/local. Root is needed only when the
                   prefix is not writable, so a prefix under your home directory
                   installs without sudo. Equivalent to LIBQUIL_PREFIX=DIR.
+  --from DIR      install files already present in DIR instead of downloading a
+                  release. Accepts either an unpacked release or a libquil build
+                  tree, where the runtime lives in a runtime/ subdirectory. This
+                  is what `make install` uses.
   --install-deps  also install libquil's prerequisites with apt or Homebrew.
                   Off by default: without it, missing prerequisites are reported
                   and the install stops. Equivalent to LIBQUIL_INSTALL_DEPS=1.
@@ -39,6 +43,7 @@ EOF
 LIBQUIL_RELEASE_REPO="${LIBQUIL_RELEASE_REPO:-rigetti/libquil}"
 LIBQUIL_INSTALL_DEPS="${LIBQUIL_INSTALL_DEPS:-0}"
 LIBQUIL_PREFIX="${LIBQUIL_PREFIX:-/usr/local}"
+LIBQUIL_FROM=""
 LIBQUIL_VERSION=""
 
 while [[ $# -gt 0 ]]
@@ -51,6 +56,12 @@ do
       shift
       ;;
     --prefix=*)     LIBQUIL_PREFIX="${1#--prefix=}" ;;
+    --from)
+      [[ -n "${2-}" ]] || err "--from needs a directory"
+      LIBQUIL_FROM="${2}"
+      shift
+      ;;
+    --from=*)       LIBQUIL_FROM="${1#--from=}" ;;
     -h | --help)    usage; exit 0 ;;
     -*)             usage >&2; err "" "Unknown option: ${1}" ;;
     *)
@@ -64,6 +75,11 @@ do
   esac
   shift
 done
+
+if [[ -n "${LIBQUIL_FROM}" && -n "${LIBQUIL_VERSION}" ]]
+then
+  err "--from installs the files in that directory, so a version cannot also be given."
+fi
 
 if [[ -n "${LIBQUIL_VERSION}" ]]
 then
@@ -82,8 +98,10 @@ then
       LIBQUIL_RELEASE_FILE="linux-amd64.zip"
       ;;
     *)
-      err "Unsupported CPU architecture for Linux: ${ARCH}. Only x86_64 is supported." \
-          "You can build libquil from source; see https://github.com/rigetti/libquil#building-from-source"
+      # Only a problem when downloading: --from installs what is already built.
+      [[ -n "${LIBQUIL_FROM}" ]] ||
+        err "Unsupported CPU architecture for Linux: ${ARCH}. Only x86_64 is supported." \
+            "You can build libquil from source; see https://github.com/rigetti/libquil#building-from-source"
       ;;
   esac
 elif [[ "${OS}" == "Darwin" ]]
@@ -93,9 +111,10 @@ then
       LIBQUIL_RELEASE_FILE="macos-arm64.zip"
       ;;
     *)
-      err "Unsupported CPU architecture for macOS: ${ARCH}. Only Apple Silicon (arm64) is supported." \
-          "Intel macOS builds are no longer published. You can build libquil from source; see" \
-          "https://github.com/rigetti/libquil#building-from-source"
+      [[ -n "${LIBQUIL_FROM}" ]] ||
+        err "Unsupported CPU architecture for macOS: ${ARCH}. Only Apple Silicon (arm64)" \
+            "has published builds. You can build libquil from source; see" \
+            "https://github.com/rigetti/libquil#building-from-source"
       ;;
   esac
 # Windows shells report one of these. libquil publishes no Windows build, so there
@@ -107,11 +126,14 @@ else
   err "Unsupported operating system: ${OS}. libquil supports Linux and macOS."
 fi
 
-for tool in curl unzip
-do
-  command -v "${tool}" >/dev/null 2>&1 ||
-    err "This installer needs ${tool}, which was not found. Install it and try again."
-done
+if [[ -z "${LIBQUIL_FROM}" ]]
+then
+  for tool in curl unzip
+  do
+    command -v "${tool}" >/dev/null 2>&1 ||
+      err "This installer needs ${tool} to download a release, and it was not found."
+  done
+fi
 
 LIBQUIL_LIB_PREFIX="${LIBQUIL_PREFIX}/lib"
 LIBQUIL_INCLUDE_PREFIX="${LIBQUIL_PREFIX}/include/libquil"
@@ -276,40 +298,90 @@ then
       "them yourself: https://github.com/rigetti/libquil#requirements"
 fi
 
-LIBQUIL_RELEASE_URL="${LIBQUIL_URL_PREFIX}/${LIBQUIL_RELEASE_FILE}"
-LIBQUIL_TEMP_DIR="$(mktemp -d)"
+# The files that make up an installed libquil, named once. libquil.core has to
+# land beside libsbcl_librarian, so the libraries and the core share a directory:
+# the runtime locates its core relative to its own path.
+LIBQUIL_HEADERS=(libquil.h sbcl_librarian.h sbcl_librarian_err.h)
+LIBQUIL_LIBS=(
+  "libquil.${LIBQUIL_LIB_SUFFIX}"
+  "libsbcl_librarian.${LIBQUIL_LIB_SUFFIX}"
+  # SBCL names its linkable runtime libsbcl.so on every platform, macOS included.
+  libsbcl.so
+  libquil.core
+)
 
-trap 'rm -rf "${LIBQUIL_TEMP_DIR}"' EXIT
-cd "${LIBQUIL_TEMP_DIR}"
+# A release unpacks with everything in one directory; a build tree keeps the
+# runtime in runtime/. Accept both, so `make install` can hand over the tree it
+# just built without staging a copy first.
+locate_artifact() {
+  local dir="${1}" name="${2}" candidate
+  for candidate in "${dir}/${name}" "${dir}/runtime/${name}"
+  do
+    if [[ -f "${candidate}" ]]
+    then
+      printf '%s' "${candidate}"
+      return 0
+    fi
+  done
+  return 1
+}
 
-# -f so an HTTP error is a non-zero exit rather than an error page written to the
-# archive: without it a bad version tag saves a "404: Not Found" body as the .zip
-# and the failure only surfaces later, as a confusing unzip error.
-curl -fL "${LIBQUIL_RELEASE_URL}" -o "${LIBQUIL_RELEASE_FILE}" ||
-  err "Could not download ${LIBQUIL_RELEASE_URL}" \
-      "Check that the requested version exists: https://github.com/${LIBQUIL_RELEASE_REPO}/releases"
-unzip "${LIBQUIL_RELEASE_FILE}"
+install_artifacts() {
+  local source="${1}" name path
+  for name in "${LIBQUIL_HEADERS[@]}"
+  do
+    path="$(locate_artifact "${source}" "${name}")" ||
+      err "${name} is missing from ${source}."
+    cp "${path}" "${LIBQUIL_INCLUDE_PREFIX}"
+  done
+  for name in "${LIBQUIL_LIBS[@]}"
+  do
+    path="$(locate_artifact "${source}" "${name}")" ||
+      err "${name} is missing from ${source}."
+    cp "${path}" "${LIBQUIL_LIB_PREFIX}"
+  done
+}
 
-# libquil.core must land in the same directory as libsbcl_librarian: the runtime
-# locates its core relative to its own path.
-mkdir -p "${LIBQUIL_LIB_PREFIX}" "${LIBQUIL_INCLUDE_PREFIX}"
-cp libquil/libquil.h libquil/sbcl_librarian.h libquil/sbcl_librarian_err.h "${LIBQUIL_INCLUDE_PREFIX}"
-cp libquil/libquil.core libquil/libsbcl.so "${LIBQUIL_LIB_PREFIX}"
+if [[ -n "${LIBQUIL_FROM}" ]]
+then
+  [[ -d "${LIBQUIL_FROM}" ]] || err "--from ${LIBQUIL_FROM} is not a directory."
+  LIBQUIL_SOURCE_DIR="$(cd "${LIBQUIL_FROM}" && pwd)"
+else
+  LIBQUIL_RELEASE_URL="${LIBQUIL_URL_PREFIX}/${LIBQUIL_RELEASE_FILE}"
+  LIBQUIL_TEMP_DIR="$(mktemp -d)"
+
+  trap 'rm -rf "${LIBQUIL_TEMP_DIR}"' EXIT
+  cd "${LIBQUIL_TEMP_DIR}"
+
+  # -f so an HTTP error is a non-zero exit rather than an error page written to the
+  # archive: without it a bad version tag saves a "404: Not Found" body as the .zip
+  # and the failure only surfaces later, as a confusing unzip error.
+  curl -fL "${LIBQUIL_RELEASE_URL}" -o "${LIBQUIL_RELEASE_FILE}" ||
+    err "Could not download ${LIBQUIL_RELEASE_URL}" \
+        "Check that the requested version exists: https://github.com/${LIBQUIL_RELEASE_REPO}/releases"
+  unzip "${LIBQUIL_RELEASE_FILE}"
+  LIBQUIL_SOURCE_DIR="${LIBQUIL_TEMP_DIR}/libquil"
+fi
+
+install_artifacts "${LIBQUIL_SOURCE_DIR}"
 
 if [[ -n "${IS_LINUX-}" ]]
 then
-  cp libquil/libquil.so libquil/libsbcl_librarian.so "${LIBQUIL_LIB_PREFIX}"
-  ldconfig
+  # Only meaningful for a system prefix, and only permitted as root.
+  if [[ "$(id -u)" -eq 0 ]]
+  then
+    ldconfig
+  fi
 else
-  cp libquil/libquil.dylib libquil/libsbcl_librarian.dylib "${LIBQUIL_LIB_PREFIX}"
   echo "Removing the quarantine attribute from the installed files."
   # This disables the "cannot open libquil.dylib from untrusted developer" dialog.
   # A better solution for this would be to properly codesign the files, but that
-  # is a non-trivial amount of work.
-  xattr -r -d com.apple.quarantine "${LIBQUIL_LIB_PREFIX}/libquil.dylib"
-  xattr -r -d com.apple.quarantine "${LIBQUIL_LIB_PREFIX}/libsbcl_librarian.dylib"
-  xattr -r -d com.apple.quarantine "${LIBQUIL_LIB_PREFIX}/libquil.core"
-  xattr -r -d com.apple.quarantine "${LIBQUIL_LIB_PREFIX}/libsbcl.so"
+  # is a non-trivial amount of work. A no-op on files that were never quarantined,
+  # such as a local build.
+  for name in "${LIBQUIL_LIBS[@]}"
+  do
+    xattr -r -d com.apple.quarantine "${LIBQUIL_LIB_PREFIX}/${name}" 2>/dev/null || true
+  done
 fi
 
 # A prefix other than /usr/local is not on any default search path, so tell the

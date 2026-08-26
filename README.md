@@ -130,32 +130,17 @@ in your Quicklisp local-projects directory. Then:
 make
 ```
 
-This produces the library and the runtime it needs:
-
-```
-libquil.dylib                     the C bindings
-libquil.h                         its header
-runtime/libsbcl_librarian.dylib   the SBCL runtime; brings up Lisp when loaded
-runtime/libquil.core              the Lisp image
-runtime/libsbcl.so                the linkable SBCL runtime
-runtime/sbcl_librarian*.h         runtime headers
-```
-
-Everything under `runtime/` is installed alongside the library, and
-`libquil.core` must sit next to `libsbcl_librarian` — the runtime finds its core
-relative to its own location. There is no initialization call to make: loading
-the library starts Lisp.
-
-`make install` puts them in the layout consumers expect, in the same place the
-release installer would:
+To install what you just built, into `/usr/local` or anywhere you can write:
 
 ```bash
-make install                          # /usr/local, needs root
-make install PREFIX="${HOME}/.local"  # anywhere you can write
+make install                          # needs root
+make install PREFIX="${HOME}/.local"  # does not
 ```
 
-For a prefix other than `/usr/local` it prints the `LIBQUIL_SRC_PATH`,
+For a prefix other than `/usr/local` this prints the `LIBQUIL_SRC_PATH`,
 `LIBQUIL_LIB_PATH` and library-path variables to build and run against it.
+
+There is no initialization call to make: loading the library starts Lisp.
 
 See [REARCHITECTURE.md](REARCHITECTURE.md) for how this fits together and why.
 
