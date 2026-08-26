@@ -5,8 +5,9 @@ message and in comments at the point of use; this file only tracks what is left.
 
 ## Where it stands
 
-All review feedback has been addressed in code. Four upstream dependencies are
-pinned to branches or a bare commit, each tagged with a `TODO(...)` at the pin:
+All review feedback has been addressed in code, and CI is green on both platforms.
+Four upstream dependencies are pinned to branches or a bare commit, each tagged
+with a `TODO(...)` at the pin:
 
 | dependency | pinned to | tracked by | blocked on |
 |---|---|---|---|
@@ -31,13 +32,19 @@ That is the single thing gating merge-and-release, not review.
   from `README.md` and the PR description. Dropping it means fixing those two
   references.
 
-## Not verified locally
+## CI
 
-- The **C examples** under `examples/qvm` and `examples/quilc` were never run on a
-  locally built artifact: this machine's SBCL core and linkable runtime come from
-  different builds, so `make` produces something that cannot load. Equivalent
-  checks were run from Lisp instead. CI covers the real thing.
-- The **macOS job** has not yet completed on the current head.
+Green on both platforms on the current head. Worth noting what that covers, since
+none of it could be checked locally:
+
+- The **C examples** under `examples/qvm` and `examples/quilc` run in the `Test`
+  step on both jobs. Locally they cannot: this machine's SBCL core and linkable
+  runtime come from different builds, so `make` produces something that will not
+  load. Equivalent checks were run from Lisp instead.
+- The **macOS job builds SBCL from source** through `scripts/install-sbcl.sh`, so
+  the shared-script refactor is exercised rather than just the cached path.
+- magicl's new load-time backend check passes on both runners, i.e. CI's OpenBLAS
+  is complete and computes correctly.
 
 ## Draft comment to post
 
@@ -78,8 +85,20 @@ the vendored `PROCESS-PROTOQUIL` (quil-lang/quilc#933), the OpenBLAS preload and
 symlinks (quil-lang/magicl#222), and — unrelated to libquil but found along the way
 — a dead `init()` in sbcl-librarian (added to quil-lang/sbcl-librarian#91).
 
-**What gates this PR** is the four dependency pins in the table above, not review.
-Each has a `TODO` at the pin and an issue.
+CI is green on both platforms, including the C example tests for quilc and qvm and
+a from-source SBCL build on macOS.
+
+**What gates this PR** is not review but four dependency pins, each tagged with a
+`TODO(...)` where it is pinned:
+
+| dependency | tracked by | blocked on |
+|---|---|---|
+| sbcl-librarian | #60 | quil-lang/sbcl-librarian#91 merge + release |
+| quilc | #61 | quil-lang/quilc#933 merge |
+| magicl | #62 | quil-lang/magicl#222 merge + release |
+| qvm | quil-lang/qvm#330 | any release newer than 1.17.2 (2021) |
+
+This cannot be released against stable dependencies until those resolve.
 
 Two things I would still like a call on: `install.sh` now requires root, which makes
 the documented invocation `curl … | sudo bash`; and `REARCHITECTURE.md` is still
