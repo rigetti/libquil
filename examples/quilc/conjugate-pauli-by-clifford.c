@@ -2,13 +2,12 @@
 #include <stdlib.h>
 
 #include "error.h"
+#include "sbcl_librarian.h"
 #include "libquil.h"
 
 int main() {
-  init("../../libquil.core");
-
   quil_program clifford;
-  if (quilc_parse_quil("H 0", &clifford) != LIBQUIL_ERROR_SUCCESS) {
+  if (quilc_parse_quil("H 0", &clifford) != LISP_ERR_SUCCESS) {
     LIBQUIL_ERROR("failed to parse quil");
     exit(1);
   }
@@ -20,7 +19,7 @@ int main() {
 
   if (quilc_conjugate_pauli_by_clifford(
           pauli_indices, 1, pauli_terms, 1, clifford, &result_phase,
-          &result_pauli) != LIBQUIL_ERROR_SUCCESS) {
+          &result_pauli) != LISP_ERR_SUCCESS) {
     LIBQUIL_ERROR("failed to call quilc_conjugate_by_pauli");
     exit(1);
   }

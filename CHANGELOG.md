@@ -1,3 +1,31 @@
+## 0.4.0-rc.1 (2026-08-26)
+
+### Breaking Changes
+
+- build against modern sbcl-librarian
+
+### Features
+
+- install to any prefix, and need root only when the prefix demands it
+- add `make install`, and document installing without root
+
+### Fixes
+
+- load OpenBLAS into the image before magicl picks a backend
+- check for BLAS and LAPACK, and install without sudo when already root
+- say what the SUDO_USER guard in install.sh actually checks
+
+## 0.4.0-rc.0 (2026-08-13)
+
+### Breaking Changes
+
+- build against modern sbcl-librarian
+
+### Fixes
+
+- load OpenBLAS into the image before magicl picks a backend
+- check for BLAS and LAPACK, and install without sudo when already root
+
 ## 0.3.2 (2023-12-14)
 
 ### Fixes

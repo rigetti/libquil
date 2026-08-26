@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "error.h"
+#include "sbcl_librarian.h"
 #include "libquil.h"
 
 void die(char *msg) {
@@ -11,11 +12,9 @@ void die(char *msg) {
 }
 
 int main(int argc, char **argv) {
-  init("../../libquil.core");
-
   quil_program program;
 
-  if (quilc_parse_quil("H 0; CNOT 0 1", &program) != LIBQUIL_ERROR_SUCCESS) {
+  if (quilc_parse_quil("H 0; CNOT 0 1", &program) != LISP_ERR_SUCCESS) {
     LIBQUIL_ERROR("failed to parse quil");
     exit(1);
   }
@@ -25,7 +24,7 @@ int main(int argc, char **argv) {
   double wavefunction[n_probabilities];
   memset(wavefunction, 0, n_probabilities * sizeof(double));
 
-  if (qvm_probabilities(program, NULL, wavefunction) != LIBQUIL_ERROR_SUCCESS) {
+  if (qvm_probabilities(program, NULL, wavefunction) != LISP_ERR_SUCCESS) {
     LIBQUIL_ERROR("failed to call qvm_probabilities");
     exit(1);
   }

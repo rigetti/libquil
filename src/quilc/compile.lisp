@@ -68,6 +68,12 @@
             (coerce runtime 'double-float)))
     present-p))
 
+(defun compile-quil (parsed-program chip-specification)
+  ;; As in COMPILE-PROTOQUIL, the LAPACK library for macOS will sometimes hit a
+  ;; division-by-zero. Mask those interrupts so they can be handled in Lisp.
+  (magicl:with-blapack
+    (cl-quil:compiler-hook parsed-program chip-specification)))
+
 (defun compile-protoquil (parsed-program chip-specification metadata-ptr)
   (multiple-value-bind (compiled-program metadata)
       (magicl:with-blapack (process-program parsed-program chip-specification :protoquil t))
@@ -75,5 +81,5 @@
       (let ((handle (sbcl-librarian::make-handle metadata)))
         (setf (sb-alien:deref metadata-ptr)
               handle)))
-    (cl-quil.frontend::transform 'cl-quil.frontend::process-protoquil compiled-program)
+    (cl-quil.frontend::transform 'cl-quil.frontend:process-protoquil compiled-program)
     compiled-program))

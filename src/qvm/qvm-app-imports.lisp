@@ -12,14 +12,18 @@
   )
 
 (defun compress-program-qubits (quil)
+  "Remap the qubits of QUIL to a minimal sequential set from 0 to (num-qubits-used - 1). Return two values: the processed Quil code and the mapping vector.
+
+The mapping vector V specifies that the qubit as specified in the program V[i] has been mapped to qubit i."
   (let* ((quil (cl-quil:copy-instance quil))
+         (mapping (cl-quil::compute-qubit-mapping quil))
          (trivial-mapping-p
-           (loop :for x :across (cl-quil::compute-qubit-mapping quil)
+           (loop :for x :across mapping
                  :for i :from 0
                  :always (= x i))))
     (unless trivial-mapping-p
       (cl-quil::transform 'cl-quil::compress-qubits quil))
-    quil))
+    (values quil mapping)))
 
 (defun get-random-state (arg)
   (etypecase arg

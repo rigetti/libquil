@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "error.h"
+#include "sbcl_librarian.h"
 #include "libquil.h"
 
 void die(char *msg) {
@@ -11,13 +12,11 @@ void die(char *msg) {
 }
 
 int main(int argc, char **argv) {
-  init("../../libquil.core");
-
   quil_program program;
 
   char *source = "X 0; X 2";
 
-  if (quilc_parse_quil(source, &program) != LIBQUIL_ERROR_SUCCESS) {
+  if (quilc_parse_quil(source, &program) != LISP_ERR_SUCCESS) {
     LIBQUIL_ERROR("failed to call quilc_parse_quil");
     exit(1);
   }
@@ -29,7 +28,7 @@ int main(int argc, char **argv) {
   int results[num_trials][n_qubits];
   memset(results, 0, num_trials * n_qubits * sizeof(int));
   if (qvm_multishot_measure(program, qubits, n_qubits, num_trials, NULL,
-                            &results) != LIBQUIL_ERROR_SUCCESS) {
+                            &results) != LISP_ERR_SUCCESS) {
     LIBQUIL_ERROR("failed to call qvm_multishot_measure");
     exit(1);
   }

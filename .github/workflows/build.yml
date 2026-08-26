@@ -4,22 +4,54 @@ on:
   pull_request:
   workflow_call:
 
+env:
+  # SBCL is built from source for its linkable runtime; see scripts/install-sbcl.sh.
+  SBCL_VERSION: "2.6.7"
+  # Host used to cross-compile SBCL_VERSION on Linux. It cannot be apt's (22.04
+  # ships 2.1.11, too old) nor SBCL_VERSION's own binary release, which is linked
+  # against glibc 2.38 and will not run on 22.04. 2.5.0's binary needs only glibc
+  # 2.34 and is recent enough to build 2.6.7.
+  SBCL_BOOTSTRAP_VERSION: "2.5.0"
+  # libquil depends on three sbcl-librarian fixes (secondary-system FASL bundles,
+  # library prefix, configurable core name), which live on a branch of Rigetti's
+  # fork and are proposed upstream as quil-lang/sbcl-librarian#91.
+  SBCL_LIBRARIAN_REPO: "https://github.com/rigetti/sbcl-librarian.git"  # TODO(rigetti/libquil#60)
+  SBCL_LIBRARIAN_REF: "fix-secondary-system-bundles"                    # TODO(rigetti/libquil#60)
+  # magicl selects a BLAS/LAPACK by searching a fixed list of paths. Until it
+  # knows about OpenBLAS, that search picks a backend that is wrong on arm64 and
+  # cannot be redirected without hacks -- so libquil had to preload OpenBLAS and
+  # symlink it over liblapack.dylib. This branch adds OpenBLAS to the search, a
+  # MAGICL_LAPACK_PATH override, and a startup check on what got loaded; it is
+  # proposed upstream as quil-lang/magicl#222.
+  MAGICL_REPO: "https://github.com/rigetti/magicl.git"                  # TODO(rigetti/libquil#62)
+  MAGICL_REF: "backend-selection-and-validation"                        # TODO(rigetti/libquil#62)
+  # PROCESS-PROTOQUIL lives in quilc's *application*, which libquil does not
+  # depend on, so libquil vendored a copy. quil-lang/quilc#933 moves it into the
+  # library and exports it, which is where it belongs.
+  QUILC_REPO: "https://github.com/rigetti/quilc.git"                    # TODO(rigetti/libquil#61)
+  QUILC_REF: "896-protoquil-transform"                                  # TODO(rigetti/libquil#61)
+  # The Quicklisp dist supplying the Lisp dependencies.
+  QUICKLISP_VERSION: "2026-01-01"
+
 jobs:  
   build-linux:
     name: Build libquil.so
-    runs-on: ubuntu-latest
+    # Pinned rather than ubuntu-latest: the artifact links libsbcl, so it inherits
+    # the glibc of whatever built it, and a build on 24.04 fails to load on 22.04
+    # with "version `GLIBC_2.38' not found".
+    runs-on: ubuntu-22.04
 
     steps:
       - name: root suid tar
         run: sudo chown root /bin/tar && sudo chmod u+s /bin/tar
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           path: "libquil"
 
       - name: Cache SBCL
         id: cache-sbcl
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             /usr/local/lib/libsbcl.so
@@ -27,73 +59,72 @@ jobs:
             /usr/local/bin/sbcl
             ~/quicklisp
             ~/.sbclrc
-          key: ${{ runner.os }}-build-${{ hashFiles('**/versions') }}
+          # env.ImageOS is set by the runner image itself (e.g. "ubuntu22", "macos15");
+          # unlike runner.os it changes when the image is upgraded,
+          # so a new image does not reuse a cache built against the old one.
+          # Note that this variable is stable but not yet documented:
+          # https://github.com/github/docs/issues/40108
+          key: ${{ env.ImageOS }}-${{ runner.arch }}-build-${{ hashFiles('**/versions') }}
 
       - if: steps.cache-sbcl.outputs.cache-hit != 'true'
         name: Install SBCL, libraries, and quicklisp
         run: |
-          sudo apt update && sudo apt install -y sbcl build-essential
-          sudo git clone --single-branch --branch sbcl-2.2.4 https://git.code.sf.net/p/sbcl/sbcl /usr/src/sbcl
-          cd /usr/src/sbcl && sudo sh make.sh && sudo sh make-shared-library.sh
-          sudo apt remove -y sbcl
-          sudo sh install.sh 
-          sudo cp src/runtime/libsbcl.so /usr/local/lib/libsbcl.so
-
-          sudo apt install -y wget
-          wget -P /tmp/ 'https://beta.quicklisp.org/quicklisp.lisp'
-          sbcl --noinform --non-interactive --load /tmp/quicklisp.lisp --eval "(quicklisp-quickstart:install :dist-url \"http://beta.quicklisp.org/dist/quicklisp/2022-04-01/distinfo.txt\")"
-          sbcl --noinform --non-interactive --load ~/quicklisp/setup.lisp --eval '(ql-util:without-prompting (ql:add-to-init-file))'
-          echo "#+quicklisp(push (truename \"$GITHUB_WORKSPACE\") ql:*local-project-directories*)" >> ~/.sbclrc
-          rm -f /tmp/quicklisp.lisp
-          cat ~/.sbclrc
+          sudo apt update && sudo apt install -y build-essential bzip2 wget
+          # Cross compiling a current SBCL needs a host of roughly the same
+          # vintage, and 22.04 ships 2.1.11, which fails in make-host-1 with
+          # "FAILURE-P was set when creating genesis.fasl". Bootstrap from a
+          # binary release instead. 22.04 is used deliberately, since the artifact
+          # inherits the glibc of whatever builds it.
+          wget -q "https://downloads.sourceforge.net/project/sbcl/sbcl/$SBCL_BOOTSTRAP_VERSION/sbcl-$SBCL_BOOTSTRAP_VERSION-x86-64-linux-binary.tar.bz2" -O /tmp/sbcl-bin.tar.bz2
+          mkdir -p /tmp/sbcl-bin && tar xf /tmp/sbcl-bin.tar.bz2 -C /tmp/sbcl-bin --strip-components=1
+          cd /tmp/sbcl-bin && sudo sh install.sh
+          "$GITHUB_WORKSPACE/libquil/scripts/install-sbcl.sh"
 
       - name: Pull Lisp dependencies
-        run: |
-          git clone https://github.com/notmgsk/quilc.git $GITHUB_WORKSPACE/quilc && cd $GITHUB_WORKSPACE/quilc && git checkout bffea7fdb972cc9b3a50b790246b6a3143c88c7a
-          git clone https://github.com/quil-lang/qvm.git $GITHUB_WORKSPACE/qvm && cd $GITHUB_WORKSPACE/qvm && git checkout 4617625cb6053b1adfd3f7aea9cd2be328b225f6
-          git clone https://github.com/quil-lang/magicl.git $GITHUB_WORKSPACE/magicl
-          git clone https://github.com/stylewarning/cl-permutation $GITHUB_WORKSPACE/cl-permutation
-          git clone https://github.com/quil-lang/sbcl-librarian.git $GITHUB_WORKSPACE/sbcl-librarian && cd $GITHUB_WORKSPACE/sbcl-librarian && git checkout 04f7e390c777084ac43b8df9e90593a041da2381
+        run: "$GITHUB_WORKSPACE/libquil/scripts/clone-lisp-deps.sh"
 
       - name: Install quilc dependencies
-        run: sudo apt update && sudo apt install -y libblas-dev libffi-dev libffi7 liblapack-dev libz-dev gfortran
+        # libffi-dev pulls in whichever libffi runtime the image ships; naming a
+        # version explicitly breaks whenever the runner image moves.
+        run: sudo apt update && sudo apt install -y libblas-dev libffi-dev liblapack-dev libz-dev gfortran
 
       - name: Build libquil.so
         run: |
           cd $GITHUB_WORKSPACE/libquil
           ls
-          sbcl --noinform --non-interactive --eval '(ql:quickload :sbcl-librarian)'
-          sbcl --dynamic-space-size 8192 --noinform --non-interactive --eval '(ql:quickload :libquil)'
           make
 
       - name: Test
         run: |
-          cd $GITHUB_WORKSPACE/libquil/examples/qvm && LD_LIBRARY_PATH=../.. make test
-          cd $GITHUB_WORKSPACE/libquil/examples/quilc && LD_LIBRARY_PATH=../.. make test
+          cd $GITHUB_WORKSPACE/libquil/examples/qvm && LD_LIBRARY_PATH=../..:../../runtime make test
+          cd $GITHUB_WORKSPACE/libquil/examples/quilc && LD_LIBRARY_PATH=../..:../../runtime make test
 
       - name: Package files
         run: |
-          mkdir -p $GITHUB_WORKSPACE/artifacts/libquil && cp $GITHUB_WORKSPACE/libquil/libquil.h $GITHUB_WORKSPACE/libquil/libquil.so $GITHUB_WORKSPACE/libquil/libquil.core /usr/local/lib/libsbcl.so $GITHUB_WORKSPACE/artifacts/libquil
+          "$GITHUB_WORKSPACE/libquil/scripts/package-artifact.sh" \
+            "$GITHUB_WORKSPACE/libquil" "$GITHUB_WORKSPACE/artifacts"
 
       - name: Store artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: linux-amd64
-          path: ${{ github.workspace }}/artifacts/*
+          # A directory (not a glob): upload-artifact v4 preserves structure
+          # relative to it, keeping the libquil/ prefix the release job unzips.
+          path: ${{ github.workspace }}/artifacts
 
-  build-macos:
-    name: Build libquil.dylib
+  build-macos-arm:
+    name: Build Apple-Silicon libquil.dylib
     runs-on: macos-latest
 
     steps:
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           path: "libquil"
 
       - name: Cache SBCL
         id: cache-sbcl-macos
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             /usr/local/lib/libsbcl.so
@@ -101,46 +132,32 @@ jobs:
             /usr/local/bin/sbcl
             ~/quicklisp
             ~/.sbclrc
-          key: ${{ runner.os }}-build-${{ hashFiles('**/macos-versions' )}}
+          # See the Linux job for why this keys on env.ImageOS.
+          key: ${{ env.ImageOS }}-${{ runner.arch }}-build-${{ hashFiles('**/versions') }}
 
       - uses: Homebrew/actions/setup-homebrew@master
         name: Setup homebrew
 
       - if: steps.cache-sbcl-macos.outputs.cache-hit != 'true'
         name: Install SBCL, libraries, and quicklisp
+        env:
+          # Homebrew's sbcl is only the cross-compilation host; drop it once the
+          # build is done so the one we install is the one on PATH.
+          SBCL_REMOVE_HOST_CMD: "brew remove -f sbcl"
         run: |
-          brew install sbcl git
-          git clone --branch x86-null-tn https://git.code.sf.net/p/sbcl/sbcl /tmp/sbcl
-          cd /tmp/sbcl && sudo sh make.sh --without-compact-instance-header --without-immobile-space --without-immobile-code && sudo sh make-shared-library.sh
-          brew remove -f sbcl
-          sudo sh install.sh
-          sudo cp src/runtime/libsbcl.so /usr/local/lib/libsbcl.so
-
-          brew install wget
-          wget -P /tmp/ 'https://beta.quicklisp.org/quicklisp.lisp'
-          sbcl --noinform --non-interactive --load /tmp/quicklisp.lisp --eval "(quicklisp-quickstart:install :dist-url \"http://beta.quicklisp.org/dist/quicklisp/2022-04-01/distinfo.txt\")"
-          sbcl --noinform --non-interactive --load ~/quicklisp/setup.lisp --eval '(ql-util:without-prompting (ql:add-to-init-file))'
-          echo "#+quicklisp(push (truename \"$GITHUB_WORKSPACE\") ql:*local-project-directories*)" >> ~/.sbclrc
-          rm -f /tmp/quicklisp.lisp
-          cat ~/.sbclrc
+          brew install sbcl git wget
+          "$GITHUB_WORKSPACE/libquil/scripts/install-sbcl.sh"
 
       - name: Pull Lisp dependencies
-        run: |
-          git clone https://github.com/notmgsk/quilc.git $GITHUB_WORKSPACE/quilc && cd $GITHUB_WORKSPACE/quilc && git checkout bffea7fdb972cc9b3a50b790246b6a3143c88c7a
-          git clone https://github.com/quil-lang/qvm.git $GITHUB_WORKSPACE/qvm && cd $GITHUB_WORKSPACE/qvm && git checkout 4617625cb6053b1adfd3f7aea9cd2be328b225f6
-          git clone https://github.com/quil-lang/magicl.git $GITHUB_WORKSPACE/magicl
-          git clone https://github.com/stylewarning/cl-permutation $GITHUB_WORKSPACE/cl-permutation
-          git clone https://github.com/quil-lang/sbcl-librarian.git $GITHUB_WORKSPACE/sbcl-librarian && cd $GITHUB_WORKSPACE/sbcl-librarian && git checkout 04f7e390c777084ac43b8df9e90593a041da2381
+        run: "$GITHUB_WORKSPACE/libquil/scripts/clone-lisp-deps.sh"
 
       - name: Install quilc dependencies
-        run: brew install lapack openblas libffi gfortran
+        run: brew install openblas libffi gfortran
 
       - name: Build libquil.dylib
         run: |
           cd $GITHUB_WORKSPACE/libquil
           ls
-          sbcl --noinform --non-interactive --eval '(ql:quickload :sbcl-librarian)'
-          sbcl --dynamic-space-size 8192 --noinform --non-interactive --eval '(ql:quickload :libquil)'
           make
 
       - name: ls
@@ -149,15 +166,18 @@ jobs:
 
       - name: Test
         run: |
-          cd $GITHUB_WORKSPACE/libquil/examples/qvm && DYLD_LIBRARY_PATH=$GITHUB_WORKSPACE/libquil make test
-          cd $GITHUB_WORKSPACE/libquil/examples/quilc && DYLD_LIBRARY_PATH=$GITHUB_WORKSPACE/libquil make test
+          cd $GITHUB_WORKSPACE/libquil/examples/qvm && DYLD_LIBRARY_PATH=$GITHUB_WORKSPACE/libquil:$GITHUB_WORKSPACE/libquil/runtime make test
+          cd $GITHUB_WORKSPACE/libquil/examples/quilc && DYLD_LIBRARY_PATH=$GITHUB_WORKSPACE/libquil:$GITHUB_WORKSPACE/libquil/runtime make test
 
       - name: Package files
         run: |
-          mkdir -p $GITHUB_WORKSPACE/artifacts/libquil && cp $GITHUB_WORKSPACE/libquil/libquil.h $GITHUB_WORKSPACE/libquil/libquil.dylib $GITHUB_WORKSPACE/libquil/libquil.core /usr/local/lib/libsbcl.so $GITHUB_WORKSPACE/artifacts/libquil
+          "$GITHUB_WORKSPACE/libquil/scripts/package-artifact.sh" \
+            "$GITHUB_WORKSPACE/libquil" "$GITHUB_WORKSPACE/artifacts"
 
       - name: Store artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: macos
-          path: ${{ github.workspace }}/artifacts/*
+          name: macos-arm64
+          # A directory (not a glob): upload-artifact v4 preserves structure
+          # relative to it, keeping the libquil/ prefix the release job unzips.
+          path: ${{ github.workspace }}/artifacts

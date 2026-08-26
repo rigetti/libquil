@@ -32,7 +32,6 @@
   :documentation "The git hash of the quilc repo.")
 
 ;;; borrowed from quilc: app/src/entry-point.lisp
-
 (defun process-program (program chip-specification
                         &key
                           protoquil
@@ -63,7 +62,7 @@ Returns a values tuple (PROCESSED-PROGRAM, STATISTICS), where PROCESSED-PROGRAM 
         (cl-quil:compiler-hook program chip-specification :protoquil protoquil :destructive t)
 
       (when protoquil
-        (cl-quil.frontend::transform 'cl-quil::process-protoquil processed-program)
+        (cl-quil.frontend::transform 'cl-quil.frontend:process-protoquil processed-program)
 
         ;; Compute statistics for protoquil program
         (compute-statistics processed-program chip-specification statistics :gate-whitelist gate-whitelist :gate-blacklist gate-blacklist)

@@ -123,8 +123,7 @@
   ("LIBQUIL_TYPE_INTEGER" 2)
   ("LIBQUIL_TYPE_REAL" 3))
 
-(sbcl-librarian:define-api quilc (:error-map error-map
-                                  :function-prefix "quilc_")
+(sbcl-librarian:define-api quilc (:function-prefix "quilc_")
   (:literal "/* Quilc types */")
   (:type program-memory-type quil-program chip-specification quilc-version-info compilation-metadata)
   (:literal "/* Quilc functions */")
@@ -135,7 +134,7 @@
    (("parse_quil" cl-quil.frontend:safely-parse-quil) quil-program ((source :string)))
    (("program_memory_type" parsed-program-get-memory-region-type) :void ((program quil-program) (region-name :string) (region-type-ptr :pointer)))
    (("print_program" cl-quil.frontend:print-parsed-program) :void ((program quil-program)))
-   (("compile_quil" cl-quil:compiler-hook) quil-program ((program quil-program) (chip-spec chip-specification)))
+   (("compile_quil" compile-quil) quil-program ((program quil-program) (chip-spec chip-specification)))
    (("compilation_metadata_len" compilation-metadata-len) :int ((metadata compilation-metadata)))
    (("compilation_metadata_get_final_rewiring" compilation-metadata-get-final-rewiring)
     :void
@@ -174,7 +173,7 @@
     quil-program
     ((program quil-program)
      (chip-spec chip-specification)
-     (metata-ptr :pointer)))
+     (metadata-ptr :pointer-out)))
    (("build_nq_linear_chip" cl-quil::build-nq-linear-chip) chip-specification ((n :int)))
    (("print_chip_spec" cl-quil::debug-print-chip-spec) :void ((chip-spec chip-specification)))
    (("parse_chip_spec_isa_json" parse-chip-spec-isa-json) chip-specification ((isa-json :string)))
@@ -199,30 +198,3 @@
      (results-ptr :pointer)
      (result-lens-ptr :pointer)))))
 
-;; Mark: this is required until SBCL-LIBRARIAN supports (:pointer :pointer) types.
-(progn
-  (sb-alien:define-alien-callable ("quilc_compile_protoquil"
-                                   quilc-compile-protoquil)
-      sb-alien:int
-      ((program (* t)) (chip-spec (* t))
-       ;; Mark: SBCL-LIBRARIAN would generate the type as (* t) but we need
-       ;; (* (* t)) (i.e a pointer to a pointer) otherwise we cannot use
-       ;; SB-ALIEN:DEREF.
-       (metata-ptr (* (* t)))
-       (sbcl-librarian::result (* (* t))))
-    (let ((program-handle (sbcl-librarian::dereference-handle program))
-          (chip-spec-handle (sbcl-librarian::dereference-handle chip-spec))
-          (metadata-ptr metata-ptr))
-      (block error-map
-        (handler-bind ((t
-                         (lambda (condition)
-                           (setf *last-error* (format nil "~a" condition))
-                           (return-from error-map 1))))
-          (progn
-            (setf (sb-alien:deref sbcl-librarian::result)
-                  (sbcl-librarian::make-handle
-                   (compile-protoquil program-handle chip-spec-handle metadata-ptr)))
-            0)))))
-  (when sbcl-librarian::*initialize-callables-p*
-    (sb-alien::initialize-alien-callable-symbol
-     '("quilc_compile_protoquil" quilc-compile-protoquil))))
