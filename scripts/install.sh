@@ -197,10 +197,6 @@ fi
 LIBQUIL_SEARCH_DIRS=(/usr/local/lib /usr/lib)
 if [[ "${OS}" == "Darwin" ]]
 then
-  # `man dyld` gives /usr/lib and /usr/local/lib as the defaults. Homebrew's
-  # prefixes are not among them, but counting them keeps a normal
-  # `brew install openblas` from being reported as missing, at the cost of not
-  # catching the case where magicl ends up unable to load a keg-only install.
   if command -v brew >/dev/null 2>&1
   then
     LIBQUIL_BREW_PREFIX="$(brew --prefix)"

@@ -23,9 +23,8 @@ These libraries are required by `libquil`:
 
 `magicl` loads `BLAS` and `LAPACK` at runtime under their unversioned names,
 `libblas.so` and `liblapack.so` (`.dylib` on macOS). Those names come from the
-*development* packages, so the `-dev` packages have to be installed — a runtime-only
-package such as Debian's `libblas3` provides `libblas.so.3` and no unversioned
-symlink, which is not enough.
+*development* packages, so the `-dev` packages have to be installed;
+a runtime-only package such as Debian's `libblas3` will not work.
 
 On systems which use `apt` to install packages (e.g. Ubuntu), these libraries can be installed with the command
 

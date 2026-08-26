@@ -6,5 +6,4 @@ SBCL_LIBRARIAN_VERSION=fix-secondary-system-bundles
 SBCL_VERSION=sbcl-2.6.7
 # Linux cross-compilation host; see build.yml.
 SBCL_BOOTSTRAP_VERSION=2.5.0
-# 2022-04-01 predates clos-encounters, which current cl-quil depends on.
 QUICKLISP_VERSION=2026-01-01

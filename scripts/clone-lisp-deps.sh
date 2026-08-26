@@ -19,9 +19,7 @@ set -euo pipefail
 
 # quil-lang/qvm has had no release since 1.17.2 (2021), so this is a commit
 # rather than a tag; quil-lang/qvm#330 asks for one, and this pin can become a
-# tag once there is one. Currently the head of master, five commits ahead of the
-# 2022 revision libquil pinned when CI was first written, picking up the move to
-# clos-encounters that current cl-quil also uses.
+# tag once there is one.
 QVM_REF="1c4ca60d7912219063e3969be92ec45e12a0798f"  # TODO(quil-lang/qvm#330)
 
 git clone "${QUILC_REPO}" "${GITHUB_WORKSPACE}/quilc"
