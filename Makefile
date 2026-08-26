@@ -71,7 +71,8 @@ ifeq ($(LIBSBCL),)
 	@echo "error: no linkable SBCL runtime (libsbcl.so) found."                        >&2
 	@echo "Searched:"                                                                  >&2
 	@$(foreach dir,$(LIBSBCL_SEARCH_DIRS),echo "    $(dir)" >&2;)
-	@echo "Build one from an SBCL source tree of the same version as $(SBCL):"         >&2
+	@echo "Build one from the SBCL source tree that produced $(SBCL) -- a matching"     >&2
+	@echo "version is not enough, the build IDs have to agree:"                        >&2
 	@echo "    sh make.sh --with-sb-linkable-runtime && sh make-shared-library.sh"     >&2
 	@echo "then re-run make, or pass LIBSBCL=/path/to/libsbcl.so"                      >&2
 	@exit 1

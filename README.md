@@ -11,9 +11,8 @@ We provide pre-built binaries for the following systems
 - Linux x64 (tested specifically on Ubuntu)
 - macOS aarch64 (Apple Silicon)
 
-Intel macOS binaries are no longer published. Other platforms, including Intel
-macOS, can be built from source — see [Building from
-source](#building-from-source).
+Other platforms can be built from source — see
+[Building from source](#building-from-source).
 
 ## Requirements
 
@@ -40,10 +39,7 @@ On systems which use `brew` to install packages (e.g macOS), these libraries can
 brew install openblas libffi
 ```
 
-> Note: OpenBLAS is what supplies BLAS and LAPACK here, and `magicl` selects it in
-> preference to anything else. Homebrew's reference `lapack` no longer has to be
-> avoided, but it is not a substitute: its current arm64 bottle computes incorrect
-> eigenvectors, and Accelerate is missing routines `quilc` needs.
+On macOS, OpenBLAS supplies both `BLAS` and `LAPACK`.
 
 ## Automated installation
 
@@ -56,13 +52,13 @@ A script is provided to automate installation of the library. It will detect the
 Run the following command
 
 ```
-curl https://raw.githubusercontent.com/rigetti/libquil/main/install.sh | sudo bash
+curl https://raw.githubusercontent.com/rigetti/libquil/main/scripts/install.sh | sudo bash
 ```
 
 If you would like to install a particular version of the library, run the following command
 
 ```
-curl https://raw.githubusercontent.com/rigetti/libquil/main/install.sh | sudo bash -s <version-identifier>
+curl https://raw.githubusercontent.com/rigetti/libquil/main/scripts/install.sh | sudo bash -s <version-identifier>
 ```
 
 replacing `<version-identifier>` with the desired version, e.g. `0.3.0`.
@@ -73,7 +69,7 @@ install them for you with `apt` or Homebrew, skipping any that are already
 present:
 
 ```
-curl https://raw.githubusercontent.com/rigetti/libquil/main/install.sh | sudo bash -s -- --install-deps
+curl https://raw.githubusercontent.com/rigetti/libquil/main/scripts/install.sh | sudo bash -s -- --install-deps
 ```
 
 It requires `apt` on Linux and Homebrew on macOS, and fails if neither is
@@ -85,20 +81,34 @@ If you would like to manually install the library (for example in the case where
 
 ## Building from source
 
-Building requires an SBCL with a *linkable runtime* (`libsbcl.so`). `make.sh` does
-not build one by default, and the packages we have checked — Homebrew's `sbcl`
-bottle and Ubuntu's `sbcl` — do not ship one, so SBCL has to be built from source:
+Building requires an SBCL with a *linkable runtime* (`libsbcl.so`). SBCL does not
+build one by default, and the packages we have checked — Homebrew's `sbcl` bottle
+and Ubuntu's `sbcl` — do not ship one, so SBCL itself has to be built from source.
+
+`make.sh`, `make-shared-library.sh` and `install.sh` below are scripts in **SBCL's**
+source tree. SBCL's `install.sh` is not libquil's `scripts/install.sh` described
+above. Run them from a checkout of SBCL:
 
 ```bash
+git clone --branch sbcl-2.6.7 https://git.code.sf.net/p/sbcl/sbcl
+cd sbcl
 sh make.sh --with-sb-linkable-runtime && sh make-shared-library.sh && sh install.sh
 ```
 
-`install.sh` places it in SBCL's home directory, where the `Makefile` finds it
-automatically. To use one from elsewhere, pass it explicitly:
+SBCL's `install.sh` puts both the `sbcl` binary and `libsbcl.so` in SBCL's home
+directory, where libquil's `Makefile` finds the latter automatically. To use a
+runtime from elsewhere, pass it explicitly:
 
 ```bash
 make LIBSBCL=/path/to/sbcl/src/runtime/libsbcl.so
 ```
+
+> Note: the `sbcl` that builds libquil and the `libsbcl.so` it is linked against
+> must come from the *same build*, not merely the same version. SBCL stamps a build
+> ID into both, and a mismatch is only caught at runtime, as
+> `core was built for runtime "..." but this is "..."`. Installing SBCL from source
+> as above satisfies this; leaving a packaged `sbcl` earlier on `PATH` than the one
+> just installed does not.
 
 The Lisp dependencies (`quilc`, `qvm`, `magicl`, `sbcl-librarian`) are expected
 in your Quicklisp local-projects directory. Then:
@@ -125,18 +135,6 @@ the library starts Lisp.
 
 See [REARCHITECTURE.md](REARCHITECTURE.md) for how this fits together and why.
 
-### Linear algebra backend on aarch64 macOS
-
-Install OpenBLAS (`brew install openblas`). `magicl` prefers it over the
-alternatives, and checks at load time that whatever it selected is complete and
-computes correctly, so a bad backend fails the build with a message naming the
-library rather than producing an artifact that is silently wrong.
-
-The alternatives are both unusable on aarch64: Homebrew's reference `lapack` bottle
-returns incorrect eigenvectors for complex input
-([homebrew-core#300084](https://github.com/Homebrew/homebrew-core/issues/300084)),
-and Accelerate's legacy LAPACK is missing routines `quilc` calls.
-
 # C API Reference
 
 These come from `sbcl_librarian_err.h`, which is installed alongside `libquil.h`.
@@ -149,9 +147,6 @@ These come from `sbcl_librarian_err.h`, which is installed alongside `libquil.h`
   When any error is encountered, it will be stored in memory. A subsequent call to `get_error_message` will return that error message. After calling `get_error_message`, the error is cleared from memory such that immediately calling `get_error_message` after a previous call will return an empty string (indicating no errors since the previous error).
 - `lisp_err_t enable_backtrace(int enabled)`
   Turns backtrace capture on the error message on or off.
-
-> Note: this replaces the pre-0.4 `libquil_error_t` / `libquil_error()` API. See
-> [REARCHITECTURE.md](REARCHITECTURE.md) (D2) for why.
 
 ## Quilc documentation
 
