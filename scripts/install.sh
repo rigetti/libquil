@@ -167,6 +167,16 @@ do
         "    install.sh --prefix \"\${HOME}/.local\""
 done
 
+# Every command below that could read standard input is given </dev/null. This
+# script is documented to be run as `curl ... | bash`, where the script text *is*
+# stdin: a child that reads it consumes the rest of the script, and bash then hits
+# EOF and exits 0 having silently skipped everything after. That is not
+# hypothetical -- `sudo brew install` did exactly this, leaving prerequisites
+# installed and libquil not.
+#
+# The whole script cannot simply redirect its own stdin: bash is still reading
+# itself from there.
+
 # Installing prerequisites is opt-in. The default is to check and report, because
 # this script is commonly run as `curl ... | sudo bash` and a package manager
 # invocation there has a much wider blast radius than copying files into
@@ -201,12 +211,13 @@ install_prerequisites() {
     local formula
     for formula in openblas libffi
     do
-      "${brew_cmd[@]}" list --formula "${formula}" >/dev/null 2>&1 || missing+=("${formula}")
+      "${brew_cmd[@]}" list --formula "${formula}" >/dev/null 2>&1 </dev/null ||
+        missing+=("${formula}")
     done
     if [[ "${#missing[@]}" -gt 0 ]]
     then
       echo "Installing prerequisites with Homebrew: ${missing[*]}"
-      "${brew_cmd[@]}" install "${missing[@]}"
+      "${brew_cmd[@]}" install "${missing[@]}" </dev/null
     fi
     return
   fi
@@ -230,8 +241,8 @@ install_prerequisites() {
   if [[ "${#missing[@]}" -gt 0 ]]
   then
     echo "Installing prerequisites with apt: ${missing[*]}"
-    apt-get update
-    apt-get install -y "${missing[@]}"
+    apt-get update </dev/null
+    apt-get install -y "${missing[@]}" </dev/null
   fi
 }
 
@@ -359,7 +370,7 @@ else
   curl -fL "${LIBQUIL_RELEASE_URL}" -o "${LIBQUIL_RELEASE_FILE}" ||
     err "Could not download ${LIBQUIL_RELEASE_URL}" \
         "Check that the requested version exists: https://github.com/${LIBQUIL_RELEASE_REPO}/releases"
-  unzip "${LIBQUIL_RELEASE_FILE}"
+  unzip "${LIBQUIL_RELEASE_FILE}" </dev/null
   LIBQUIL_SOURCE_DIR="${LIBQUIL_TEMP_DIR}/libquil"
 fi
 
