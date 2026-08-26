@@ -15,8 +15,7 @@ endif
 
 LIBQUIL_TARGET = libquil$(SHARED_SUFFIX)
 
-# libquil is built against modern sbcl-librarian (see REARCHITECTURE.md), which
-# splits the work in two:
+# libquil uses sbcl-librarian, which splits the work in two:
 #
 #   runtime/libsbcl_librarian$(SHARED_SUFFIX)  the SBCL runtime; a constructor
 #                                              initializes Lisp when it is loaded

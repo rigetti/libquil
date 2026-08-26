@@ -19,11 +19,6 @@
 ;; computes incorrect eigenvectors, so a bad one fails this build with a message
 ;; naming the library rather than producing an artifact that is quietly wrong.
 ;;
-;; libquil used to force the choice here, by loading OpenBLAS before magicl could
-;; look. That is no longer necessary; see REARCHITECTURE.md D7. If magicl is ever
-;; pinned back to a version without the search entry, MAGICL_LAPACK_PATH set at
-;; build time does the same job.
-;;
 ;; Whatever magicl loads is recorded in the core by SBCL and reopened at startup,
 ;; so the choice is still baked into the artifact rather than left to the loader.
 

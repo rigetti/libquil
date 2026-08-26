@@ -140,10 +140,6 @@ make install PREFIX="${HOME}/.local"  # does not
 For a prefix other than `/usr/local` this prints the `LIBQUIL_SRC_PATH`,
 `LIBQUIL_LIB_PATH` and library-path variables to build and run against it.
 
-There is no initialization call to make: loading the library starts Lisp.
-
-See [REARCHITECTURE.md](REARCHITECTURE.md) for how this fits together and why.
-
 # C API Reference
 
 These come from `sbcl_librarian_err.h`, which is installed alongside `libquil.h`.
