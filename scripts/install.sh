@@ -12,17 +12,24 @@ err() {
 
 usage() {
   cat <<'EOF'
-Usage: install.sh [--install-deps] [VERSION]
+Usage: install.sh [--prefix DIR] [--install-deps] [VERSION]
 
-Installs libquil into /usr/local. Must be run as root.
+Installs libquil into DIR/lib and DIR/include/libquil.
 
   VERSION         release to install, e.g. 0.4.0. Defaults to the latest release.
+  --prefix DIR    install here instead of /usr/local. Root is needed only when the
+                  prefix is not writable, so a prefix under your home directory
+                  installs without sudo. Equivalent to LIBQUIL_PREFIX=DIR.
   --install-deps  also install libquil's prerequisites with apt or Homebrew.
                   Off by default: without it, missing prerequisites are reported
                   and the install stops. Equivalent to LIBQUIL_INSTALL_DEPS=1.
 
+Consumers find a non-default prefix through LIBQUIL_SRC_PATH and LIBQUIL_LIB_PATH;
+this script prints the values to use when it finishes.
+
 Environment:
   LIBQUIL_RELEASE_REPO   repository to fetch releases from (default rigetti/libquil)
+  LIBQUIL_PREFIX         install prefix (default /usr/local)
   LIBQUIL_INSTALL_DEPS   set to 1 for --install-deps
 EOF
 }
@@ -31,12 +38,19 @@ EOF
 # is how a prerelease can be tested before it is published from the main repository.
 LIBQUIL_RELEASE_REPO="${LIBQUIL_RELEASE_REPO:-rigetti/libquil}"
 LIBQUIL_INSTALL_DEPS="${LIBQUIL_INSTALL_DEPS:-0}"
+LIBQUIL_PREFIX="${LIBQUIL_PREFIX:-/usr/local}"
 LIBQUIL_VERSION=""
 
 while [[ $# -gt 0 ]]
 do
   case "${1}" in
     --install-deps) LIBQUIL_INSTALL_DEPS=1 ;;
+    --prefix)
+      [[ -n "${2-}" ]] || err "--prefix needs a directory"
+      LIBQUIL_PREFIX="${2}"
+      shift
+      ;;
+    --prefix=*)     LIBQUIL_PREFIX="${1#--prefix=}" ;;
     -h | --help)    usage; exit 0 ;;
     -*)             usage >&2; err "" "Unknown option: ${1}" ;;
     *)
@@ -99,15 +113,37 @@ do
     err "This installer needs ${tool}, which was not found. Install it and try again."
 done
 
-LIBQUIL_LIB_PREFIX="/usr/local/lib"
-LIBQUIL_INCLUDE_PREFIX="/usr/local/include/libquil"
-
-# Installing into /usr/local needs root, and on macOS clearing the quarantine
-# attribute does too. Checked before anything else runs so the failure is immediate.
-if [[ "$(id -u)" -ne 0 ]]
+LIBQUIL_LIB_PREFIX="${LIBQUIL_PREFIX}/lib"
+LIBQUIL_INCLUDE_PREFIX="${LIBQUIL_PREFIX}/include/libquil"
+if [[ "${OS}" == "Darwin" ]]
 then
-  err "This script must be run as root; it installs into ${LIBQUIL_LIB_PREFIX} and ${LIBQUIL_INCLUDE_PREFIX}."
+  LIBQUIL_LD_PATH_VAR="DYLD_LIBRARY_PATH"
+else
+  LIBQUIL_LD_PATH_VAR="LD_LIBRARY_PATH"
 fi
+
+# Root is not a requirement of the install, only of writing to /usr/local. Test
+# what is actually needed -- whether the target directories can be created and
+# written -- so that `--prefix "${HOME}/.local"` works as an ordinary user.
+# Checked before anything else runs so the failure is immediate.
+# Create the target and write to it, rather than inspecting permission bits: -w
+# disagrees with reality often enough to matter -- it ignores ACLs, reports true
+# on a read-only mount, and is always true for root. The directories are needed
+# either way, so making them here costs nothing.
+directory_is_writable() {
+  local dir="${1}" probe
+  mkdir -p "${dir}" 2>/dev/null || return 1
+  probe="$(mktemp "${dir}/.libquil-install-probe.XXXXXX" 2>/dev/null)" || return 1
+  rm -f "${probe}"
+}
+
+for dir in "${LIBQUIL_LIB_PREFIX}" "${LIBQUIL_INCLUDE_PREFIX}"
+do
+  directory_is_writable "${dir}" ||
+    err "Cannot write to ${dir}." \
+        "Re-run with sudo, or choose a writable prefix, e.g." \
+        "    install.sh --prefix \"\${HOME}/.local\""
+done
 
 # Installing prerequisites is opt-in. The default is to check and report, because
 # this script is commonly run as `curl ... | sudo bash` and a package manager
@@ -274,4 +310,24 @@ else
   xattr -r -d com.apple.quarantine "${LIBQUIL_LIB_PREFIX}/libsbcl_librarian.dylib"
   xattr -r -d com.apple.quarantine "${LIBQUIL_LIB_PREFIX}/libquil.core"
   xattr -r -d com.apple.quarantine "${LIBQUIL_LIB_PREFIX}/libsbcl.so"
+fi
+
+# A prefix other than /usr/local is not on any default search path, so tell the
+# caller how consumers find it. libquil-sys reads both: LIBQUIL_SRC_PATH for the
+# headers, LIBQUIL_LIB_PATH for the libraries, which differ because the headers
+# live one directory deeper.
+if [[ "${LIBQUIL_PREFIX}" != "/usr/local" ]]
+then
+  cat <<EOF
+
+Installed to ${LIBQUIL_PREFIX}. That is not a default search path, so build
+against it with:
+
+    export LIBQUIL_SRC_PATH="${LIBQUIL_INCLUDE_PREFIX}"
+    export LIBQUIL_LIB_PATH="${LIBQUIL_LIB_PREFIX}"
+
+and run with:
+
+    export ${LIBQUIL_LD_PATH_VAR}="${LIBQUIL_LIB_PREFIX}"
+EOF
 fi
